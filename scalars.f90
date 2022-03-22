@@ -55,7 +55,9 @@ logical, public :: inits = .true.
 character(64) :: fname
 ! Reference temperature scale
 real(rprec), public :: T_scale = 300._rprec
-
+! Cooling rate and initial scal_bot_0
+real(rprec), public :: Cr = 0._rprec !GN
+real(rprec), public :: scal_bot_0 = 0._rprec ! GN
 ! Boundary conditions
 ! lbc: lower boundary condition
 ! ubc: upper boundary condition
@@ -78,9 +80,10 @@ contains
 subroutine scalars_init
 !*******************************************************************************
 ! This subroutine initializes the variables for the scalars module
-use param, only : lbz, ld, ld_big, nx, ny, nz, ny2, u_star, z_i
+use param, only : lbz, ld, ld_big, nx, ny, nz, ny2, u_star, z_i, coord, read_endian
 use functions, only : count_lines
 integer :: i, num_t, fid
+logical :: exst
 
 ! Allocate simulation variables
 allocate ( theta(ld, ny, lbz:nz) ); theta = 0._rprec
@@ -115,6 +118,8 @@ allocate ( tstar_lbc(nx, ny) ); tstar_lbc = 0._rprec
 g = g*(z_i/(u_star**2))
 flux_bot = flux_bot/u_star/T_scale
 scal_bot = scal_bot/T_scale
+scal_bot_0 = scal_bot_0/T_scale
+Cr = (Cr/T_scale)*(z_i/u_star)
 lapse_rate = lapse_rate/T_scale*z_i
 ic_theta = ic_theta/T_scale
 ic_z = ic_z/z_i
@@ -135,6 +140,16 @@ if (read_lbc_scal) then
     end do
 end if
 
+!Initialize scal_bot from scal_bot.out file if lbc_scal==2
+if (lbc_scal==2) then
+    inquire (file='scal_bot.out', exist=exst)
+    if (exst) then
+        open(12, file='scal_bot.out', form='unformatted', convert=read_endian)
+        read(12) scal_bot
+        close(12)
+        if(coord==0) print*,"scal_bot previous", scal_bot
+    end if
+endif
 end subroutine scalars_init
 
 !*******************************************************************************
@@ -284,7 +299,6 @@ do i = 1, nproc_r
     read(12) theta_f(:, :, z1:z2)
     close(12)
 end do
-
 ! Calculate velocities
 do i = 1, nx
     xx = grid%x(i) - floor(grid%x(i)/Lx_f) * Lx_f
@@ -334,13 +348,20 @@ end subroutine ic_scal_interp
 !*******************************************************************************
 subroutine scalars_checkpoint
 !*******************************************************************************
-use param, only : nx, nz, write_endian
+use param, only : nx, nz, write_endian, read_endian, coord
 
 !  Open scal.out (lun_default in io) for final output
 open(11, file=fname, form='unformatted', convert=write_endian,                 &
     status='unknown', position='rewind')
 write(11) theta(:, :, 1:nz), RHS_T(:, :, 1:nz), psi_m(1:nx, :)
 close(11)
+
+if (lbc_scal == 2 .and. coord==0) then
+    print*,"Writing scal_bot to checkpoint file", scal_bot
+    open(12, file='scal_bot.out', form='unformatted', convert=read_endian)
+    write(12) scal_bot
+    close(12)
+end if
 
 end subroutine scalars_checkpoint
 
@@ -367,7 +388,7 @@ end subroutine scalars_deriv
 !*******************************************************************************
 subroutine obukhov(u_avg)
 !*******************************************************************************
-use param, only : vonk, dz, zo, nx, ny, ld, u_star, lbz, total_time_dim
+use param, only : vonk, dz, zo, nx, ny, ld, u_star, lbz, total_time_dim, dt, coord, z_i
 use sim_param, only : ustar_lbc
 use coriolis, only : repeat_interval
 use functions, only : linear_interp
@@ -418,8 +439,15 @@ end if
 if (lbc_scal == 0) then
     tstar_lbc = (theta1(1:nx,:) - scal_bot)*vonk                               &
         / (log(0.5_rprec*dz/zo_s) + psi_h)
-else
+else if (lbc_scal == 1) then
     tstar_lbc = -flux_bot/ustar_lbc
+else if (lbc_scal == 2) then
+    scal_bot  = scal_bot + Cr*dt
+    tstar_lbc = (theta1(1:nx,:) - scal_bot)*vonk                               &
+        / (log(0.5_rprec*dz/zo_s) + psi_h)
+    if (coord == 0) then
+        print *,"scal_bot_previous, Cr, scal_bot, dt, z_i, u_star", scal_bot-Cr*dt, Cr, scal_bot, dt, z_i, u_star
+    end if
 end if
 
 ! Calculate temperature gradient and flux

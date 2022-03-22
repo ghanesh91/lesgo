@@ -74,7 +74,7 @@ real(rprec) :: rmsdivvel, ke, maxcfl, tt
 type(clock_t) :: clock, clock_total, clock_forcing
 
 ! Measure total time in forcing function
-real(rprec) :: clock_total_f = 0.0
+real(rprec) :: clock_total_f = 0.0, cpu_T1=0.0, cpu_T2=0.0 !GN
 
 #ifdef PPMPI
 ! Buffers used for MPI communication
@@ -109,6 +109,11 @@ jt_total = 0
 
 ! Initialize all data
 call initialize()
+!print*,"Printing output files"
+!call output_final()
+!STOP
+
+ 
 
 if(coord == 0) then
     call clock%stop
@@ -131,7 +136,13 @@ time_loop: do jt_step = nstart, nsteps
 
     ! Get the starting time for the iteration
     call clock%start
-
+    !GN
+    cpu_T1=0.0
+    cpu_T2=0.0
+    if (coord == 0) then
+        call cpu_time(cpu_T1)
+        print *, 'start CPU time: ',jt_total, cpu_T1
+    end if
     if (use_cfl_dt) then
 
         dt_f = dt
@@ -396,8 +407,12 @@ time_loop: do jt_step = nstart, nsteps
             MPI_SUM, comm, ierr)
         tau_top = maxdummy
 #endif
-
-            if (coord == 0) then
+        if (coord == 0) then
+                call cpu_time(cpu_T2)
+                print *, 'Final CPU time: ', jt_total, cpu_T2
+                print *, 'CPU time diff: ', jt_total, cpu_T2-cpu_T1
+        end if
+        if (coord == 0) then
             write(*,*)
             write(*,'(a)') '==================================================='
             write(*,'(a)') 'Time step information:'
@@ -483,6 +498,7 @@ if (coord == 0) write(*,"(a,e15.7)") 'Simulation wall time (s) : ',            &
 if (coord == 0) write(*,"(a,e15.7)") 'Simulation cpu time (s) : ',             &
     clock_total % time
 #endif
+
 
 call finalize()
 

@@ -842,6 +842,10 @@ do
                 read (buff(equal_pos+1:), *) lbc_scal
             case ('SCAL_BOT')
                 read (buff(equal_pos+1:), *) scal_bot
+            case ('SCAL_BOT_0')
+                read (buff(equal_pos+1:), *) scal_bot_0
+            case ('CR')
+                read (buff(equal_pos+1:), *) Cr
             case ('FLUX_BOT')
                 read (buff(equal_pos+1:), *) flux_bot
             case ('READ_LBC_SCAL')

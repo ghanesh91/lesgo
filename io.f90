@@ -702,6 +702,7 @@ use param, only : yplane_nloc, yplane_loc
 use param, only : zplane_nloc, zplane_loc
 use param, only : dx, dy
 use param, only : write_endian
+use sgs_param, only : Cs_opt2, F_LM, F_MM, F_QN, F_NN, Nu_t
 use grid_m
 use sim_param, only : u, v, w, p
 use sim_param, only : dwdy, dwdx, dvdx, dudy
@@ -715,6 +716,7 @@ use param, only : ny, nz, dz
 #ifdef PPLVLSET
 use level_set_base, only : phi
 use sim_param, only : fx, fy, fz, fxa, fya, fza
+use sgs_param, only : delta
 #endif
 #ifdef PPSCALARS
 use scalars, only : theta
@@ -807,6 +809,35 @@ elseif(itype==2) then
     write(13,rec=3) w_uv(:nx,:ny,1:nz)
     close(13)
 #endif
+
+    ! Common file name for all output types
+    call string_splice(fname, path //'output/sgs.', jt_total)
+
+#if defined(PPCGNS) && defined(PPMPI)
+    ! Write CGNS Output
+    call string_concat(fname, '.cgns')
+    call write_parallel_cgns(fname, nx, ny, nz - nz_end, nz_tot,               &
+        (/ 1, 1,   (nz-1)*coord + 1 /),                                        &
+        (/ nx, ny, (nz-1)*(coord+1) + 1 - nz_end /),                           &
+        x(1:nx) , y(1:ny) , z(1:(nz-nz_end) ),                                 &
+        5, (/ 'Cs_opt2', 'LM', 'MM','QN','NN','Nu_t' /),                        &
+        (/ Cs_opt2(1:nx,1:ny,1:(nz-nz_end)), F_LM(1:nx,1:ny,1:(nz-nz_end)),             &
+         F_MM(1:nx,1:ny,1:(nz-nz_end)),F_QN(1:nx,1:ny,1:(nz-nz_end)), F_NN(1:nx,1:ny,1:(nz-nz_end)), Nu_t(1:nx,1:ny,1:(nz-nz_end)) /) )
+#else
+    ! Write binary Output
+    call string_concat(fname, bin_ext)
+    open(unit=13, file=fname, form='unformatted', convert=write_endian,        &
+        access='direct', recl=nx*ny*nz*rprec)
+    write(13,rec=1) Cs_opt2(:nx,:ny,1:nz)
+    write(13,rec=2) F_LM(:nx,:ny,1:nz)
+    write(13,rec=3) F_MM(:nx,:ny,1:nz)
+    write(13,rec=4) F_QN(:nx,:ny,1:nz)
+    write(13,rec=5) F_NN(:nx,:ny,1:nz)
+    write(13,rec=6) Nu_t(:nx,:ny,1:nz)
+    close(13)
+#endif
+
+
 
     ! Compute vorticity
     allocate(vortx(nx,ny,lbz:nz), vorty(nx,ny,lbz:nz), vortz(nx,ny,lbz:nz))
@@ -1206,6 +1237,7 @@ call string_concat( fname, '.c', coord )
 #endif
 
 !  Open vel.out (lun_default in io) for final output
+print*,"Inside checkpoint subroutine"
 open(11, file=fname, form='unformatted', convert=write_endian,                 &
     status='unknown', position='rewind')
 write (11) u(:, :, 1:nz), v(:, :, 1:nz), w(:, :, 1:nz),                        &

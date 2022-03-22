@@ -108,6 +108,7 @@ if (coriolis_forcing == 2) then
         read(12) e_int, alpha
         close(12)
         pid%e_int = e_int
+        if(coord==0) print*,"e_int", e_int,"alpha",alpha
     end if
 
     ! Create
