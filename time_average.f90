@@ -41,6 +41,9 @@ real(rprec), allocatable, dimension(:,:,:) :: fza_uv
 #endif
 #ifdef PPSCALARS
 real(rprec), allocatable, dimension(:,:,:) :: theta_w
+#ifdef PPMPI
+    real(rprec) :: scal_bot_dummy ! Used to calculate scal_bot  with mpi_allreduce
+#endif
 #endif
 !  Sums performed over time
 type tavg_t
@@ -219,6 +222,12 @@ use sim_param, only : dudy, dudz, dvdx, dvdz, dwdx, dwdy
 #if defined(PPTURBINES) || defined(PPATM) || defined(PPLVLSET)
 use sim_param, only : fxa, fya, fza
 #endif
+!GN
+#ifdef PPMPI
+use mpi
+use mpi_defs, only : mpi_sync_real_array,MPI_SYNC_DOWNUP
+use param, only : ierr,comm,mpi_rprec,nproc
+#endif
 use functions, only : interp_to_uv_grid, interp_to_w_grid
 implicit none
 
@@ -303,8 +312,20 @@ this%vortz(:,:,:) = this%vortz(:,:,:) + vortz(1:nx,1:ny,:) * this%dt
 
 #ifdef PPSCALARS
 if (coord == 0) then
-        print *,"iteration, scal_bot_time_average", jt_total, scal_bot
+        print *,"coord, iteration (wall), scal_bot_time_average", coord,jt_total, scal_bot
 end if
+if (coord == 1 .or.  coord == nproc-1) then
+        print *,"coord, iteration (before MPI_Bcast), scal_bot_time_average", coord,jt_total, scal_bot
+end if
+#ifdef PPMPI
+        !call mpi_allreduce(scal_bot, scal_bot_dummy, 1, mpi_rprec, MPI_MIN, comm, ierr)
+        !scal_bot = scal_bot_dummy
+        call mpi_bcast(scal_bot,1,mpi_rprec,0,comm,ierr)
+#endif
+if (coord == 1 .or.  coord == nproc-1) then
+        print *,"coord, iteration (after MPI_Bcast), scal_bot_time_average", coord,jt_total, scal_bot
+end if
+
 this%theta_w(:,:,:)= this%theta_w(:,:,:) + (theta_w(1:nx,1:ny,:)-scal_bot)*this%dt              !! w grid
 this%theta(:,:,:)  = this%theta(:,:,:)  + (theta(1:nx,1:ny,:)-scal_bot)*this%dt                 !! uv grid
 this%utheta(:,:,:) = this%utheta(:,:,:) + u(1:nx,1:ny,:)*(theta(1:nx,1:ny,:)-scal_bot)*this%dt  !! uv grid
