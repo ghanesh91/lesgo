@@ -1237,7 +1237,6 @@ call string_concat( fname, '.c', coord )
 #endif
 
 !  Open vel.out (lun_default in io) for final output
-print*,"Inside checkpoint subroutine"
 open(11, file=fname, form='unformatted', convert=write_endian,                 &
     status='unknown', position='rewind')
 write (11) u(:, :, 1:nz), v(:, :, 1:nz), w(:, :, 1:nz),                        &

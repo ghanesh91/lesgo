@@ -21,8 +21,13 @@ module time_average
 !*******************************************************************************
 use types, only : rprec
 use param, only : nx, ny, nz, lbz
+
 #ifdef PPCGNS
 use cgns
+#endif
+
+#ifdef PPSCALARS
+use scalars, only : theta, scal_bot, pi_x, pi_y, pi_z
 #endif
 
 private
@@ -34,7 +39,9 @@ real(rprec), allocatable, dimension(:,:,:) :: pres_real
 #if defined(PPTURBINES) || defined(PPATM) || defined(PPLVLSET)
 real(rprec), allocatable, dimension(:,:,:) :: fza_uv
 #endif
-
+#ifdef PPSCALARS
+real(rprec), allocatable, dimension(:,:,:) :: theta_w
+#endif
 !  Sums performed over time
 type tavg_t
     real(rprec), dimension(:,:,:), allocatable :: u, v, w, u_w, v_w, w_uv
@@ -43,6 +50,9 @@ type tavg_t
     real(rprec), dimension(:,:,:), allocatable :: p, fx, fy, fz
     real(rprec), dimension(:,:,:), allocatable :: cs_opt2
     real(rprec), dimension(:,:,:), allocatable :: vortx, vorty, vortz
+#ifdef PPSCALARS    
+    real(rprec), dimension(:,:,:), allocatable :: utheta,vtheta,wtheta,theta,theta_w,pi_x_avg,pi_y_avg,pi_z_avg
+#endif    
     real(rprec) :: total_time
     ! Time between calls of tavg_compute, built by summing dt
     real(rprec) :: dt
@@ -109,6 +119,16 @@ allocate( this%cs_opt2(nx,ny,lbz:nz) ); this%cs_opt2(:,:,:) = 0._rprec
 allocate( this%vortx(nx,ny,lbz:nz) ); this%vortx(:,:,:) = 0._rprec
 allocate( this%vorty(nx,ny,lbz:nz) ); this%vorty(:,:,:) = 0._rprec
 allocate( this%vortz(nx,ny,lbz:nz) ); this%vortz(:,:,:) = 0._rprec
+#ifdef PPSCALARS
+allocate( this%theta(nx,ny,lbz:nz)  ); this%theta(:,:,:) = 0._rprec
+allocate( this%utheta(nx,ny,lbz:nz) ); this%utheta(:,:,:) = 0._rprec
+allocate( this%vtheta(nx,ny,lbz:nz) ); this%vtheta(:,:,:) = 0._rprec
+allocate( this%wtheta(nx,ny,lbz:nz) ); this%wtheta(:,:,:) = 0._rprec
+allocate( this%theta_w(nx,ny,lbz:nz)); this%theta_w(:,:,:) = 0._rprec
+allocate( this%pi_x_avg(nx,ny,lbz:nz)); this%pi_x_avg(:,:,:) = 0._rprec
+allocate( this%pi_y_avg(nx,ny,lbz:nz)); this%pi_y_avg(:,:,:) = 0._rprec
+allocate( this%pi_z_avg(nx,ny,lbz:nz)); this%pi_z_avg(:,:,:) = 0._rprec
+#endif
 
 fname = ftavg_in
 #ifdef PPMPI
@@ -152,6 +172,16 @@ else
     read(1) this%vortx
     read(1) this%vorty
     read(1) this%vortz
+#ifdef PPSCALARS
+    read(1) this%theta
+    read(1) this%utheta
+    read(1) this%vtheta
+    read(1) this%wtheta
+    read(1) this%theta_w
+    read(1) this%pi_x_avg
+    read(1) this%pi_y_avg
+    read(1) this%pi_z_avg
+#endif
     close(1)
 end if
 
@@ -162,7 +192,9 @@ allocate(fza_uv(nx,ny,lbz:nz))
 #endif
 allocate(pres_real(nx,ny,lbz:nz))
 allocate(vortx(nx,ny,lbz:nz), vorty(nx,ny,lbz:nz), vortz(nx,ny,lbz:nz))
-
+#ifdef PPSCALARS
+allocate(theta_w(nx,ny,lbz:nz))
+#endif
 
 ! Initialize dt
 this%dt = 0._rprec
@@ -179,7 +211,7 @@ subroutine compute(this)
 !  This subroutine collects the stats for each flow
 !  variable quantity
 !
-use param, only : ubc_mom, lbc_mom, coord, nproc
+use param, only : ubc_mom, lbc_mom, coord, nproc, jt_total
 use sgs_param, only : Cs_opt2
 use sim_param, only : u, v, w, p
 use sim_param, only : txx, txy, tyy, txz, tyz, tzz
@@ -202,7 +234,12 @@ v_w(1:nx,1:ny,lbz:nz) = interp_to_w_grid(v(1:nx,1:ny,lbz:nz), lbz )
 #if defined(PPTURBINES) || defined(PPATM) || defined(PPLVLSET)
 fza_uv(1:nx,1:ny,lbz:nz) = interp_to_uv_grid(fza(1:nx,1:ny,lbz:nz), lbz )
 #endif
-
+#ifdef PPSCALARS
+theta_w(1:nx,1:ny,lbz:nz) = interp_to_w_grid(theta(1:nx,1:ny,lbz:nz), lbz )
+if ( coord == 0 ) then
+    theta_w(1:nx,1:ny,1)=scal_bot
+endif
+#endif
 ! Calculate real pressure (not pseudo-pressure)
 pres_real(1:nx,1:ny,lbz:nz) = 0._rprec
 pres_real(1:nx,1:ny,lbz:nz) = p(1:nx,1:ny,lbz:nz)                              &
@@ -235,6 +272,7 @@ this%w_uv(:,:,:) = this%w_uv(:,:,:) + w_uv(1:nx,1:ny,:)*this%dt !! uv grid
 this%u_w(:,:,:)=this%u_w(:,:,:)+ u_w(1:nx,1:ny,:)*this%dt       !! w grid
 this%v_w(:,:,:)=this%v_w(:,:,:)+ v_w(1:nx,1:ny,:)*this%dt       !! w grid
 
+
 this%u2(:,:,:) = this%u2(:,:,:) + u(1:nx,1:ny,:)*u(1:nx,1:ny,:)*this%dt     !! uv grid
 this%v2(:,:,:) = this%v2(:,:,:) + v(1:nx,1:ny,:)*v(1:nx,1:ny,:)*this%dt     !! uv grid
 this%w2(:,:,:) = this%w2(:,:,:) + w(1:nx,1:ny,:)*w(1:nx,1:ny,:)*this%dt     !! w grid
@@ -262,6 +300,20 @@ this%cs_opt2(:,:,1:) = this%cs_opt2(:,:,1:) + Cs_opt2(1:nx,1:ny,1:)*this%dt
 this%vortx(:,:,:) = this%vortx(:,:,:) + vortx(1:nx,1:ny,:) * this%dt
 this%vorty(:,:,:) = this%vorty(:,:,:) + vorty(1:nx,1:ny,:) * this%dt
 this%vortz(:,:,:) = this%vortz(:,:,:) + vortz(1:nx,1:ny,:) * this%dt
+
+#ifdef PPSCALARS
+if (coord == 0) then
+        print *,"iteration, scal_bot_time_average", jt_total, scal_bot
+end if
+this%theta_w(:,:,:)= this%theta_w(:,:,:) + (theta_w(1:nx,1:ny,:)-scal_bot)*this%dt              !! w grid
+this%theta(:,:,:)  = this%theta(:,:,:)  + (theta(1:nx,1:ny,:)-scal_bot)*this%dt                 !! uv grid
+this%utheta(:,:,:) = this%utheta(:,:,:) + u(1:nx,1:ny,:)*(theta(1:nx,1:ny,:)-scal_bot)*this%dt  !! uv grid
+this%vtheta(:,:,:) = this%vtheta(:,:,:) + v(1:nx,1:ny,:)*(theta(1:nx,1:ny,:)-scal_bot)*this%dt  !! uv grid
+this%wtheta(:,:,:) = this%wtheta(:,:,:) + w(1:nx,1:ny,:)*(theta_w(1:nx,1:ny,:)-scal_bot)*this%dt!! w grid
+this%pi_x_avg(:,:,:) = this%pi_x_avg(:,:,:) + pi_x(1:nx,1:ny,:)*this%dt !! uv grid
+this%pi_y_avg(:,:,:) = this%pi_y_avg(:,:,:) + pi_y(1:nx,1:ny,:)*this%dt !! uv grid
+this%pi_z_avg(:,:,:) = this%pi_z_avg(:,:,:) + pi_z(1:nx,1:ny,:)*this%dt !! w grid
+#endif
 !
 ! do k = lbz, jzmax     ! lbz = 0 for mpi runs, otherwise lbz = 1
 ! do j = 1, ny
@@ -338,7 +390,9 @@ character(64) :: bin_ext
 
 character(64) :: fname_vel, fname_velw, fname_vel2, fname_tau, fname_pres
 character(64) :: fname_f, fname_rs, fname_cs, fname_vort
-
+#ifdef PPSCALARS
+character(64) :: fname_theta,fname_theta_w,fname_vel_theta,fname_theta_flux,fname_theta_sgs
+#endif
 ! integer :: i,j,k
 ! Where to end with nz index.
 integer :: nz_end
@@ -346,6 +400,9 @@ integer :: nz_end
 real(rprec), pointer, dimension(:) :: x, y, z, zw
 
 real(rprec), allocatable, dimension(:,:,:) :: up2, vp2, wp2, upvp, upwp, vpwp
+#ifdef PPSCALARS
+real(rprec), allocatable, dimension(:,:,:) :: upthetap,vpthetap,wpthetap
+#endif
 
 nullify(x,y,z,zw)
 
@@ -377,7 +434,13 @@ fname_pres = path // 'output/pres_avg'
 fname_rs = path // 'output/rs'
 fname_cs = path // 'output/cs_opt2'
 fname_vort = path // 'output/vort_avg'
-
+#ifdef PPSCALARS
+fname_theta = path // 'output/theta_avg'
+fname_theta_w = path // 'output/theta_w_avg'
+fname_vel_theta = path // 'output/vel_theta_avg'
+fname_theta_flux = path // 'output/theta_flux'
+fname_theta_sgs = path // 'output/theta_flux_sgs'
+#endif
 ! CGNS
 #ifdef PPCGNS
 call string_concat(fname_vel, '.cgns')
@@ -389,7 +452,13 @@ call string_concat(fname_f, '.cgns')
 call string_concat(fname_rs, '.cgns')
 call string_concat(fname_cs, '.cgns')
 call string_concat(fname_vort, '.cgns')
-
+#ifdef PPSCALARS
+call string_concat(fname_theta, '.cgns')
+call string_concat(fname_theta_w, '.cgns')
+call string_concat(fname_vel_theta, '.cgns')
+call string_concat(fname_theta_flux, '.cgns')
+call string_concat(fname_theta_sgs,'.cgns')
+#endif
 ! Binary
 #else
 #ifdef PPMPI
@@ -406,6 +475,13 @@ call string_concat(fname_f, bin_ext)
 call string_concat(fname_rs, bin_ext)
 call string_concat(fname_cs, bin_ext)
 call string_concat(fname_vort, bin_ext)
+#ifdef PPSCALARS
+call string_concat(fname_theta, bin_ext)
+call string_concat(fname_theta_w, bin_ext)
+call string_concat(fname_vel_theta, bin_ext)
+call string_concat(fname_theta_flux, bin_ext)
+call string_concat(fname_theta_sgs, bin_ext)
+#endif
 #endif
 
 ! Final checkpoint all restart data
@@ -442,7 +518,16 @@ this%cs_opt2(:,:,:) = this%cs_opt2(:,:,:) /  this%total_time
 this%vortx(:,:,:) = this%vortx(:,:,:) /  this%total_time
 this%vorty(:,:,:) = this%vorty(:,:,:) /  this%total_time
 this%vortz(:,:,:) = this%vortz(:,:,:) /  this%total_time
-
+#ifdef PPSCALARS
+this%theta(:,:,:)   = this%theta(:,:,:) /  this%total_time
+this%theta_w(:,:,:) = this%theta_w(:,:,:) /  this%total_time
+this%utheta(:,:,:)  = this%utheta(:,:,:) /  this%total_time
+this%vtheta(:,:,:)  = this%vtheta(:,:,:) /  this%total_time
+this%wtheta(:,:,:)  = this%wtheta(:,:,:) /  this%total_time
+this%pi_x_avg(:,:,:)= this%pi_x_avg(:,:,:)/this%total_time
+this%pi_y_avg(:,:,:)= this%pi_y_avg(:,:,:)/this%total_time
+this%pi_z_avg(:,:,:)= this%pi_z_avg(:,:,:)/this%total_time
+#endif
 
 #ifdef PPMPI
 call mpi_barrier( comm, ierr )
@@ -465,6 +550,16 @@ call mpi_sync_real_array( this%cs_opt2(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
 call mpi_sync_real_array( this%vortx(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
 call mpi_sync_real_array( this%vorty(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
 call mpi_sync_real_array( this%vortz(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+#ifdef PPSCALARS
+call mpi_sync_real_array( this%theta(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+call mpi_sync_real_array( this%theta_w(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+call mpi_sync_real_array( this%utheta(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+call mpi_sync_real_array( this%vtheta(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+call mpi_sync_real_array( this%wtheta(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+call mpi_sync_real_array( this%pi_x_avg(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+call mpi_sync_real_array( this%pi_y_avg(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+call mpi_sync_real_array( this%pi_z_avg(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+#endif
 #endif
 
 ! Write all the 3D data
@@ -551,11 +646,27 @@ write(13,rec=2) this%v(:nx,:ny,1:nz)
 write(13,rec=3) this%w_uv(:nx,:ny,1:nz)
 close(13)
 
+#ifdef PPSCALARS
+open(unit=13, file=fname_theta, form='unformatted', convert=write_endian,        &
+    access='direct', recl=nx*ny*nz*rprec)
+write(13,rec=1) this%theta(:nx,:ny,1:nz)
+close(13)
+#endif
+
 ! Write binary data
 open(unit=13, file=fname_velw, form='unformatted', convert=write_endian,       &
     access='direct', recl=nx*ny*nz*rprec)
-write(13,rec=1) this%w(:nx,:ny,1:nz)
+write(13,rec=1) this%u_w(:nx,:ny,1:nz)
+write(13,rec=2) this%v_w(:nx,:ny,1:nz)
+write(13,rec=3) this%w(:nx,:ny,1:nz)
 close(13)
+
+#ifdef PPSCALARS
+open(unit=13, file=fname_theta_w, form='unformatted', convert=write_endian,       &
+    access='direct', recl=nx*ny*nz*rprec)
+write(13,rec=1) this%theta_w(:nx,:ny,1:nz)
+close(13)
+#endif
 
 open(unit=13, file=fname_vel2, form='unformatted', convert=write_endian,       &
     access='direct', recl=nx*ny*nz*rprec)
@@ -567,6 +678,15 @@ write(13,rec=5) this%vw(:nx,:ny,1:nz)
 write(13,rec=6) this%uv(:nx,:ny,1:nz)
 close(13)
 
+#ifdef PPSCALARS
+open(unit=13, file=fname_vel_theta, form='unformatted', convert=write_endian,       &
+    access='direct', recl=nx*ny*nz*rprec)
+write(13,rec=1) this%utheta(:nx,:ny,1:nz)
+write(13,rec=2) this%vtheta(:nx,:ny,1:nz)
+write(13,rec=3) this%wtheta(:nx,:ny,1:nz)
+close(13)
+#endif
+
 open(unit=13, file=fname_tau, form='unformatted', convert=write_endian,        &
     access='direct', recl=nx*ny*nz*rprec)
 write(13,rec=1) this%txx(:nx,:ny,1:nz)
@@ -576,6 +696,16 @@ write(13,rec=4) this%txz(:nx,:ny,1:nz)
 write(13,rec=5) this%tyz(:nx,:ny,1:nz)
 write(13,rec=6) this%tzz(:nx,:ny,1:nz)
 close(13)
+
+#ifdef PPSCALARS
+open(unit=13, file=fname_theta_sgs, form='unformatted', convert=write_endian,       &
+    access='direct', recl=nx*ny*nz*rprec)
+write(13,rec=1) this%pi_x_avg(:nx,:ny,1:nz)
+write(13,rec=2) this%pi_y_avg(:nx,:ny,1:nz)
+write(13,rec=3) this%pi_z_avg(:nx,:ny,1:nz)
+close(13)
+#endif
+
 
 open(unit=13, file=fname_pres, form='unformatted', convert=write_endian,       &
     access='direct', recl=nx*ny*nz*rprec)
@@ -613,6 +743,7 @@ call mpi_barrier( comm, ierr )
 ! Do the Reynolds stress calculations afterwards. Now we can interpolate w and
 ! ww to the uv grid and do the calculations. We have already written the data to
 ! the files so we can overwrite now
+if ( coord == 0 ) print*,"Computing Reynolds stress components"
 allocate( up2(nx,ny,lbz:nz) )
 allocate( vp2(nx,ny,lbz:nz) )
 allocate( wp2(nx,ny,lbz:nz) )
@@ -627,6 +758,16 @@ upvp = this%uv - this%u * this%v
 !! stresses are on the same grid as the squared velocities (i.e., w-grid)
 upwp = this%uw - this%u_w * this%w
 vpwp = this%vw - this%v_w * this%w
+
+#ifdef PPSCALARS
+if ( coord == 0 ) print*, "Computing thermal fluxes"
+allocate( upthetap(nx,ny,lbz:nz) )
+allocate( vpthetap(nx,ny,lbz:nz) )
+allocate( wpthetap(nx,ny,lbz:nz) )
+upthetap = this%utheta - this%u * this%theta   !! uv grid
+vpthetap = this%vtheta - this%v * this%theta   !! uv grid
+wpthetap = this%wtheta - this%w * this%theta_w !! w grid
+#endif
 
 #ifdef PPCGNS
 ! Write CGNS data
@@ -643,6 +784,7 @@ call write_parallel_cgns(fname_rs,nx,ny,nz- nz_end,nz_tot,                     &
     upvp(1:nx,1:ny,1:nz- nz_end)  /) )
 #else
 ! Write binary data
+if ( coord == 0 ) print*,"Write to file Reynolds stresses"
 open(unit=13, file=fname_rs, form='unformatted', convert=write_endian,         &
     access='direct',recl=nx*ny*nz*rprec)
 write(13,rec=1) up2(:nx,:ny,1:nz)
@@ -652,6 +794,17 @@ write(13,rec=4) upwp(:nx,:ny,1:nz)
 write(13,rec=5) vpwp(:nx,:ny,1:nz)
 write(13,rec=6) upvp(:nx,:ny,1:nz)
 close(13)
+
+#ifdef PPSCALARS
+if ( coord == 0 ) print*,"Write to file thermal fluxes"
+open(unit=13, file=fname_theta_flux, form='unformatted', convert=write_endian,         &
+    access='direct',recl=nx*ny*nz*rprec)
+write(13,rec=1) upthetap(:nx,:ny,1:nz)
+write(13,rec=2) vpthetap(:nx,:ny,1:nz)
+write(13,rec=3) wpthetap(:nx,:ny,1:nz)
+close(13)
+#endif
+
 #endif
 
 #ifdef PPMPI
@@ -711,6 +864,16 @@ write(1) this%cs_opt2
 write(1) this%vortx
 write(1) this%vorty
 write(1) this%vortz
+#ifdef PPSCALARS
+write(1) this%theta
+write(1) this%utheta
+write(1) this%vtheta
+write(1) this%wtheta
+write(1) this%theta_w
+write(1) this%pi_x_avg
+write(1) this%pi_y_avg
+write(1) this%pi_z_avg
+#endif
 close(1)
 
 end subroutine checkpoint

@@ -388,7 +388,7 @@ end subroutine scalars_deriv
 !*******************************************************************************
 subroutine obukhov(u_avg)
 !*******************************************************************************
-use param, only : vonk, dz, zo, nx, ny, ld, u_star, lbz, total_time_dim, dt, coord, z_i
+use param, only : vonk, dz, zo, nx, ny, ld, u_star, lbz, total_time_dim, dt, coord, z_i, jt_total
 use sim_param, only : ustar_lbc
 use coriolis, only : repeat_interval
 use functions, only : linear_interp
@@ -446,7 +446,7 @@ else if (lbc_scal == 2) then
     tstar_lbc = (theta1(1:nx,:) - scal_bot)*vonk                               &
         / (log(0.5_rprec*dz/zo_s) + psi_h)
     if (coord == 0) then
-        print *,"scal_bot_previous, Cr, scal_bot, dt, z_i, u_star", scal_bot-Cr*dt, Cr, scal_bot, dt, z_i, u_star
+        print *,"iteration,scal_bot_previous,Cr,scal_bot,dt,z_i,u_star",jt_total,scal_bot-Cr*dt,Cr,scal_bot,dt,z_i,u_star
     end if
 end if
 
