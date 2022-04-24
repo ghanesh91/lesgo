@@ -27,7 +27,7 @@ use cgns
 #endif
 
 #ifdef PPSCALARS
-use scalars, only : theta, scal_bot, pi_x, pi_y, pi_z
+use scalars, only : theta, scal_bot, pi_x, pi_y, pi_z, lbc_scal
 #endif
 
 private
@@ -311,29 +311,42 @@ this%vorty(:,:,:) = this%vorty(:,:,:) + vorty(1:nx,1:ny,:) * this%dt
 this%vortz(:,:,:) = this%vortz(:,:,:) + vortz(1:nx,1:ny,:) * this%dt
 
 #ifdef PPSCALARS
+if (lbc_scal == 2) then
+
 if (coord == 0) then
         print *,"coord, iteration (wall), scal_bot_time_average", coord,jt_total, scal_bot
 end if
+
 if (coord == 1 .or.  coord == nproc-1) then
         print *,"coord, iteration (before MPI_Bcast), scal_bot_time_average", coord,jt_total, scal_bot
 end if
+
 #ifdef PPMPI
-        !call mpi_allreduce(scal_bot, scal_bot_dummy, 1, mpi_rprec, MPI_MIN, comm, ierr)
-        !scal_bot = scal_bot_dummy
         call mpi_bcast(scal_bot,1,mpi_rprec,0,comm,ierr)
 #endif
+
 if (coord == 1 .or.  coord == nproc-1) then
         print *,"coord, iteration (after MPI_Bcast), scal_bot_time_average", coord,jt_total, scal_bot
 end if
 
-this%theta_w(:,:,:)= this%theta_w(:,:,:) + (theta_w(1:nx,1:ny,:)-scal_bot)*this%dt              !! w grid
+this%theta_w(:,:,:)= this%theta_w(:,:,:)+ (theta_w(1:nx,1:ny,:)-scal_bot)*this%dt              !!  w grid
 this%theta(:,:,:)  = this%theta(:,:,:)  + (theta(1:nx,1:ny,:)-scal_bot)*this%dt                 !! uv grid
 this%utheta(:,:,:) = this%utheta(:,:,:) + u(1:nx,1:ny,:)*(theta(1:nx,1:ny,:)-scal_bot)*this%dt  !! uv grid
 this%vtheta(:,:,:) = this%vtheta(:,:,:) + v(1:nx,1:ny,:)*(theta(1:nx,1:ny,:)-scal_bot)*this%dt  !! uv grid
-this%wtheta(:,:,:) = this%wtheta(:,:,:) + w(1:nx,1:ny,:)*(theta_w(1:nx,1:ny,:)-scal_bot)*this%dt!! w grid
+this%wtheta(:,:,:) = this%wtheta(:,:,:) + w(1:nx,1:ny,:)*(theta_w(1:nx,1:ny,:)-scal_bot)*this%dt!!  w grid
+end if
+
+if (lbc_scal==0 .or. lbc_scal==1) then
+this%theta_w(:,:,:)= this%theta_w(:,:,:)+ theta_w(1:nx,1:ny,:)*this%dt              !!  w grid
+this%theta(:,:,:)  = this%theta(:,:,:)  + theta(1:nx,1:ny,:)*this%dt                !! uv grid
+this%utheta(:,:,:) = this%utheta(:,:,:) + u(1:nx,1:ny,:)*theta(1:nx,1:ny,:)*this%dt  !! uv grid
+this%vtheta(:,:,:) = this%vtheta(:,:,:) + v(1:nx,1:ny,:)*theta(1:nx,1:ny,:)*this%dt  !! uv grid
+this%wtheta(:,:,:) = this%wtheta(:,:,:) + w(1:nx,1:ny,:)*theta_w(1:nx,1:ny,:)*this%dt!!  w grid
+end if
+
 this%pi_x_avg(:,:,:) = this%pi_x_avg(:,:,:) + pi_x(1:nx,1:ny,:)*this%dt !! uv grid
 this%pi_y_avg(:,:,:) = this%pi_y_avg(:,:,:) + pi_y(1:nx,1:ny,:)*this%dt !! uv grid
-this%pi_z_avg(:,:,:) = this%pi_z_avg(:,:,:) + pi_z(1:nx,1:ny,:)*this%dt !! w grid
+this%pi_z_avg(:,:,:) = this%pi_z_avg(:,:,:) + pi_z(1:nx,1:ny,:)*this%dt !!  w grid
 #endif
 !
 ! do k = lbz, jzmax     ! lbz = 0 for mpi runs, otherwise lbz = 1
