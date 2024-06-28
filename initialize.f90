@@ -29,7 +29,7 @@ use param, only : path
 use param, only : USE_MPI, coord, dt, jt_total, nsteps
 use param, only : use_cfl_dt, cfl, cfl_f, dt_dim, z_i, u_star
 use iwmles
-use param, only : lbc_mom
+use param, only : lbc_mom, use_sea_drag_model
 use sponge
 #ifdef PPMPI
 use param, only : MPI_COMM_WORLD, ierr
@@ -48,7 +48,7 @@ use fft, only : init_fft
 use io, only : openfiles
 use coriolis
 use inflow, only : inflow_init
-
+use sea_surface_drag_model, only : sea_surface_drag_model_init
 #ifdef PPMPI
 use mpi_defs, only : initialize_mpi
 #ifdef PPCPS
@@ -165,6 +165,9 @@ call inflow_init
 call scalars_init()
 #endif
 
+if (use_sea_drag_model) then
+        call sea_surface_drag_model_init()
+endif
 call sponge_init()
 
 ! Formulate the fft plans--may want to use FFTW_USE_WISDOM

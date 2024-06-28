@@ -155,32 +155,16 @@ use param
 use sim_param
 use messages
 use inflow, only : apply_inflow
-use sponge ! GN
-use grid_m, only : grid ! GN
-use coriolis, only :  coriolis_forcing, alpha, G ! GN
 #ifdef PPMPI
-use mpi !GN
 use mpi_defs, only : mpi_sync_real_array, MPI_SYNC_DOWNUP
+
 #endif
 implicit none
 
 integer :: jx, jy, jz
 integer :: jz_min
-integer :: k
 real(rprec) :: RHS, tconst
-real(rprec), dimension(:,:), allocatable :: u_sp_loc, v_sp_loc, w_sp_loc !GN
-#ifdef PPMPI
-real(rprec), dimension(:,:), allocatable :: u_sp_loc_dummy, v_sp_loc_dummy, w_sp_loc_dummy !GN
-#endif
 
-allocate (u_sp_loc(ld, ny) ); u_sp_loc = 0._rprec ! GN
-allocate (v_sp_loc(ld, ny) ); v_sp_loc = 0._rprec ! GN
-allocate (w_sp_loc(ld, ny) ); w_sp_loc = 0._rprec ! GN
-#ifdef PPMPI
-allocate ( u_sp_loc_dummy(ld, ny) ); u_sp_loc_dummy = 0._rprec ! GN
-allocate ( v_sp_loc_dummy(ld, ny) ); v_sp_loc_dummy = 0._rprec ! GN
-allocate ( w_sp_loc_dummy(ld, ny) ); w_sp_loc_dummy = 0._rprec ! GN
-#endif
 ! Caching
 tconst = tadv1 * dt
 
@@ -235,37 +219,6 @@ call mpi_sync_real_array( w, 0, MPI_SYNC_DOWNUP )
 #endif
 
 !--enfore bc at top
-! If sponge layer is used with stress-free BC,  set velocity at sponge height for regions withtin the sponge layer
-! this is done to eliminate spurious oscillations within the sponge layer ! GN
-!if (ubc_mom == 0) then
-!if (use_sponge .and. coriolis_forcing > 0) then
-!   if (sponge_height >= grid%z(1) .and. sponge_height <= grid%z(nz)) then
-!         u_sp_loc(:,:)=u(:,:,sp_loc)
-!         v_sp_loc(:,:)=v(:,:,sp_loc)
-!         w_sp_loc(:,:)=w(:,:,sp_loc)
-!         !print *, "vel_coord1, sp_loc, sp_h, z_sp_loc, t_sp_loc",coord, sp_loc,  sponge_height, z_sp_loc, u_sp_loc(10,10)
-!   end if
-
-!#ifdef PPMPI
-!   call mpi_allreduce(u_sp_loc, u_sp_loc_dummy, ld*ny, mpi_rprec, MPI_SUM, comm, ierr)
-!   u_sp_loc=u_sp_loc_dummy
-!   call mpi_allreduce(v_sp_loc, v_sp_loc_dummy, ld*ny, mpi_rprec, MPI_SUM, comm, ierr)
-!   v_sp_loc=v_sp_loc_dummy
-!   call mpi_allreduce(w_sp_loc, w_sp_loc_dummy, ld*ny, mpi_rprec, MPI_SUM, comm, ierr)
-!   w_sp_loc=w_sp_loc_dummy
-!#endif
-   
-!   do k = lbz, nz
-!      if (grid%z(k) > sponge_height) then
-!          u(:,:,k) = u_sp_loc(:,:)
-!          v(:,:,k) = v_sp_loc(:,:)
-!          w(:,:,k) = w_sp_loc(:,:)
-!          !print *,"vel_coord2, z_sp_loc,  u_sp_loc", coord, z_sp_loc,  u_sp_loc(10,10)
-!      end if
-!  end do
-!end if
-!end if
-
 #ifdef PPMPI
 if (coord == nproc-1) then
 #endif

@@ -31,7 +31,7 @@ use param
 use sim_param
 use grid_m
 use io, only : energy, output_loop, output_final, jt_total
-use io, only : write_tau_wall_bot, write_tau_wall_top
+use io, only : write_tau_wall_bot, write_tau_wall_top, height_ABL
 use fft
 use derivatives, only : filt_da, ddz_uv, ddz_w
 use test_filtermodule
@@ -356,7 +356,8 @@ time_loop: do jt_step = nstart, nsteps
 
     ! Write ke to file
     if (modulo (jt_total, nenergy) == 0) call energy(ke)
-
+    ! Write ABL height to file !GN
+    if (modulo (jt_total, n_h_ABL) == 0) call height_ABL()
 #ifdef PPLVLSET
     if (global_CA_calc) call level_set_global_CA()
 #endif

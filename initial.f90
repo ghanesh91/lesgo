@@ -485,7 +485,7 @@ use coriolis, only : coriolis_forcing, G, alpha, fc
 use turbines, only : turbine_vel_init
 #endif
 #ifdef PPSCALARS
-use scalars, only : ic_no_vel_noise_z
+use scalars, only : ic_no_vel_noise_z!, N_bvais, use_CNBL_init_cond !GN
 #endif
 
 implicit none
@@ -526,7 +526,11 @@ do jz = 1, nz
     call turbine_vel_init (zo_turbines)
     arg = (1._rprec/vonk)*log(z/zo_turbines)
 #endif
-
+!#ifdef PPSCALARS
+!    if (use_CNBL_init_cond) then
+!       arg = arg + 0.3_rprec*z*N_bvais
+!    end if
+!#endif
     mean_p_force_mag = sqrt(mean_p_force_x**2 + mean_p_force_y**2)
     if (coriolis_forcing > 0) then
         if (arg < G) then

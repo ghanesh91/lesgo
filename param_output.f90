@@ -140,11 +140,14 @@ write(2,x2c_fmt) 'read_endian : ', ch
 #endif
 write(2,i_fmt) 'wbase : ', wbase
 write(2,i_fmt) 'nenergy : ', nenergy
+write(2,i_fmt) 'n_h_ABL : ', n_h_ABL !GN
 write(2,i_fmt) 'lag_cfl_count : ', lag_cfl_count
 write(2,l_fmt) 'checkpoint_data : ', checkpoint_data
 write(2,i_fmt) 'checkpoint_nskip : ', checkpoint_nskip
 write(2,l_fmt) 'tavg_calc : ', tavg_calc
 write(2,x3i_fmt) 'tavg_nstart, tavg_nend, tavg_nskip : ', tavg_nstart, tavg_nend, tavg_nskip
+write(2,l_fmt) 'tau_xy_avg_calc : ', tau_xy_avg_calc !GN
+write(2,x3i_fmt) 'tau_xy_avg_nstart, tau_xy_avg_nend, tau_xy_avg_nskip : ', tau_xy_avg_nstart, tau_xy_avg_nend, tau_xy_avg_nskip !GN
 write(2,l_fmt) 'point_calc : ', point_calc
 write(2,x3i_fmt) 'point_nstart, point_nend, point_nskip : ', point_nstart, point_nend, point_nskip
 write(2,i_fmt) 'point_nloc : ', point_nloc

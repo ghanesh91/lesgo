@@ -58,10 +58,6 @@ real(rprec), public :: T_scale = 300._rprec
 ! Cooling rate and initial scal_bot_0
 real(rprec), public :: Cr = 0._rprec !GN
 real(rprec), public :: scal_bot_0 = 0._rprec ! GN
-! Brunt Vaisala frequency
-real(rprec), public :: N_bvais = 0._rprec !GN
-! Use initial condition for CNBL !GN
-!logical, public :: use_CNBL_init_cond = .false.
 ! Boundary conditions
 ! lbc: lower boundary condition
 ! ubc: upper boundary condition
@@ -128,7 +124,7 @@ lapse_rate = lapse_rate/T_scale*z_i
 ic_theta = ic_theta/T_scale
 ic_z = ic_z/z_i
 ic_no_vel_noise_z = ic_no_vel_noise_z/z_i
-N_bvais=SQRT(g*lapse_rate)
+
 ! Read values from file
 if (read_lbc_scal) then
     ! Count number of entries and allocate
@@ -465,32 +461,17 @@ subroutine scalars_transport()
 !*******************************************************************************
 use param, only : lbz, nx, nz, nx2, ny2, nproc, coord, dt, tadv1, tadv2,       &
     jt_total, dt
-use param, only : ierr,comm,mpi_rprec,rank_of_coord ! GN
-use param, only : lbc_mom, ubc_mom, dz, L_z
-use grid_m, only : grid
+use param, only : lbc_mom, ubc_mom, dz
 use sim_param, only : u, v, w
 use sgs_param, only : Nu_t
 use derivatives, only : filt_da, ddx, ddy, ddz_uv, ddz_w
-#ifdef PPMPI
-use mpi ! GN
-#endif
 use mpi_defs, only :  mpi_sync_real_array, MPI_SYNC_DOWNUP
 use test_filtermodule
 use fft
 use messages, only : error
 
-use sponge, only : sp, use_sponge !GN
-integer :: k, jz_min, jz_max ! GN
-real(rprec), dimension(:,:), allocatable :: theta_sp_loc !GN
+integer :: k, jz_min, jz_max
 real(rprec) :: const
-#ifdef PPMPI
-real(rprec), dimension(:,:), allocatable :: theta_sp_loc_dummy !GN
-#endif
-
-allocate ( theta_sp_loc(ld, ny) ); theta_sp_loc = 0._rprec ! GN
-#ifdef PPMPI
-allocate ( theta_sp_loc_dummy(ld, ny) ); theta_sp_loc_dummy = 0._rprec ! GN
-#endif
 
 ! We do not advance the ground nodes, so start at k=2.
 ! For the MPI case, the means that we start from jz=2
@@ -629,13 +610,6 @@ do k = 1, nz-1
     RHS_T(1:nx,:,k) = -RHS_T(1:nx,:,k) - div_pi(1:nx,:,k)
 end do
 
-if (use_sponge) then !GN
-   do k=1,nz-1
-      RHS_T(1:nx,1:ny,k) = RHS_T(1:nx,1:ny,k) - 0.5_rprec*(sp(k) + sp(k+1))    &
-                         * (theta(1:nx,1:ny,k) - sum(theta(1:nx,1:ny,k))/(nx*ny))
-   end do
-end if
-
 ! Euler integration check
 if ((jt_total == 1) .and. (inits)) then
     RHS_Tf = RHS_T
@@ -653,26 +627,6 @@ call mpi_sync_real_array(theta, 0, MPI_SYNC_DOWNUP)
 if (coord == nproc-1) then
     theta(:,:,nz) = theta(:,:,nz-1) + lapse_rate*dz
 end if
-
-!! If sponge layer is used, project temperature above the sponge height
-!if (use_sponge) then
-!   if (sponge_height >= grid%z(1) .and. sponge_height <= grid%z(nz)) then
-!         theta_sp_loc(:,:)=theta(:,:,sp_loc)
-!         !print *, "coord1, sp_loc, sp_h, z_sp_loc, t_sp_loc",coord, sp_loc,  sponge_height, z_sp_loc, theta_sp_loc(10,10)
-!   end if
-   
-!#ifdef PPMPI
-!   call mpi_allreduce(theta_sp_loc, theta_sp_loc_dummy, ld*ny, mpi_rprec, MPI_SUM, comm, ierr)
-!   theta_sp_loc=theta_sp_loc_dummy
-!#endif
-   
-!   do k = lbz, nz
-!      if (grid%z(k) > sponge_height) then
-!          theta(:,:,k) = theta_sp_loc(:,:) + lapse_rate*(grid%z(k)-z_sp_loc)
-!          !print *,"coord2, z_sp_loc, theta", coord, z_sp_loc,  theta_sp_loc(10,10)
-!      end if
-!  end do
-!end if
 
 end subroutine scalars_transport
 

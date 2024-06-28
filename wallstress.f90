@@ -170,8 +170,11 @@ end subroutine ws_dns_ubc
 !*******************************************************************************
 subroutine ws_equilibrium_lbc
 !*******************************************************************************
-use param, only : dz, ld, nx, ny, vonk, zo
+use param, only : dz, ld, nx, ny, vonk, zo, use_sea_drag_model, jt_total, total_time, path
+use param, only : sea_drag_io_flag, sea_drag_io_nstart, sea_drag_io_nend, sea_drag_io_nskip, write_endian
 use sim_param, only : u, v, ustar_lbc
+use sea_surface_drag_model
+use string_util
 use test_filtermodule
 #ifdef PPSCALARS
 use scalars, only : obukhov, phi_m
@@ -180,15 +183,41 @@ use scalars, only : obukhov, phi_m
 implicit none
 
 integer :: i, j
+character (64) :: fname
 real(rprec), dimension(nx, ny) :: denom, u_avg
 real(rprec), dimension(ld, ny) :: u1, v1
 real(rprec) :: const
 
-u1 = u(:,:,1)
-v1 = v(:,:,1)
+
+if(use_sea_drag_model) then
+        call sea_surface_drag_model_forces()
+        !do i=1,nx
+        u1 = u_rel(:,:)
+        v1 = v_rel(:,:)
+        !end do
+        denom = log(0.5_rprec*dz/zo-eta(1:nx,:)/zo)
+
+        do i=1,nx
+        do j=1,ny
+           if(isnan(denom(i,j))) then
+                   print *,"denom has NaN"
+                   stop
+           elseif(denom(i,j).eq.0)then
+                   print *,"denom has zero:i,j,dz,eta,dz-eta,zo,log(dz-eta)",i,j,0.5_rprec*dz,eta(i,j) &
+                                                      ,0.5_rprec*dz-eta(i,j),zo,log(0.5_rprec*dz/zo-eta(i,j)/zo)
+           endif
+        enddo
+        enddo
+else
+        u1 = u(:,:,1)
+        v1 = v(:,:,1)
+        denom = log(0.5_rprec*dz/zo)
+endif
+
 call test_filter(u1)
 call test_filter(v1)
-denom = log(0.5_rprec*dz/zo)
+
+
 u_avg = sqrt(u1(1:nx,1:ny)**2+v1(1:nx,1:ny)**2)
 #ifdef PPSCALARS
 call obukhov(u_avg)
@@ -199,25 +228,218 @@ ustar_lbc = u_avg*vonk/denom
 do j = 1, ny
     do i = 1, nx
         const = -(ustar_lbc(i,j)**2)/u_avg(i,j)
+        
+       
         txz(i,j,1) = const*u1(i,j)
         tyz(i,j,1) = const*v1(i,j)
-        !this is as in Moeng 84
+        
+        if(use_sea_drag_model) then
+           txz(i,j,1) = txz(i,j,1) + fd_u(i,j)*dz
+           tyz(i,j,1) = tyz(i,j,1) + fd_v(i,j)*dz
+           !this is as in Moeng 84
 #ifdef PPSCALARS
-        dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u(i,j,1)/u_avg(i,j)   &
+           dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u_rel(i,j)/u_avg(i,j)   &
             * phi_m(i,j)
-        dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v(i,j,1)/u_avg(i,j)   &
+           dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v_rel(i,j)/u_avg(i,j)   &
             * phi_m(i,j)
 #else
-        dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u(i,j,1)/u_avg(i,j)
-        dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v(i,j,1)/u_avg(i,j)
+           dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u_rel(i,j)/u_avg(i,j)
+           dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v_rel(i,j)/u_avg(i,j)
 #endif
-        dudz(i,j,1) = merge(0._rprec,dudz(i,j,1),u(i,j,1).eq.0._rprec)
-        dvdz(i,j,1) = merge(0._rprec,dvdz(i,j,1),v(i,j,1).eq.0._rprec)
+           dudz(i,j,1) = merge(0._rprec,dudz(i,j,1),u_rel(i,j).eq.0._rprec)
+           dvdz(i,j,1) = merge(0._rprec,dvdz(i,j,1),v_rel(i,j).eq.0._rprec)
+        else
+           !this is as in Moeng 84
+#ifdef PPSCALARS
+           dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u(i,j,1)/u_avg(i,j)   &
+            * phi_m(i,j)
+           dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v(i,j,1)/u_avg(i,j)   &
+            * phi_m(i,j)
+#else
+           dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u(i,j,1)/u_avg(i,j)
+           dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v(i,j,1)/u_avg(i,j)
+#endif
+           dudz(i,j,1) = merge(0._rprec,dudz(i,j,1),u(i,j,1).eq.0._rprec)
+           dvdz(i,j,1) = merge(0._rprec,dvdz(i,j,1),v(i,j,1).eq.0._rprec)
+        endif
     end do
 end do
 
+if(use_sea_drag_model) then
+if (sea_drag_io_flag) then
+    if ((jt_total >= sea_drag_io_nstart).and.(jt_total <= sea_drag_io_nend)) then
+        if ( mod(jt_total-sea_drag_io_nstart,sea_drag_io_nskip)==0 ) then
+                call string_splice(fname, path //'output/sea_drag_io.', jt_total)
+                ! Write binary Output
+                call string_concat(fname, '.bin')
+                open(unit=13, file=fname, form='unformatted', convert=write_endian,        &
+                     access='direct', recl=nx*ny*rprec)
+                write(13,rec=1)    u(1:nx,1:ny,1)
+                write(13,rec=2)    v(1:nx,1:ny,1)
+                write(13,rec=3)   u1(1:nx,1:ny)
+                write(13,rec=4)   v1(1:nx,1:ny)
+                write(13,rec=5)  txz(1:nx,1:ny,1)
+                write(13,rec=6)  tyz(1:nx,1:ny,1)
+                write(13,rec=7)  eta(1:nx,1:ny)
+                write(13,rec=8) detadx(1:nx,1:ny)
+                write(13,rec=9) detady(1:nx,1:ny)
+                write(13,rec=10) us_orb(1:nx,1:ny)
+                write(13,rec=11) ws_orb(1:nx,1:ny)
+                write(13,rec=12) u_rel(1:nx,1:ny)
+                write(13,rec=13) v_rel(1:nx,1:ny)
+                write(13,rec=14) w_rel(1:nx,1:ny)
+                write(13,rec=15) u_rel_c(1:nx,1:ny)
+                write(13,rec=16) v_rel_c(1:nx,1:ny)
+                write(13,rec=17) n_u(1:nx,1:ny)
+                write(13,rec=18) n_v(1:nx,1:ny)
+                write(13,rec=19) fd_u(1:nx,1:ny)
+                write(13,rec=20) fd_v(1:nx,1:ny) 
+                write(13,rec=21) total_time
+                close(13)
+        endif
+    endif
+endif
+endif
+
 end subroutine ws_equilibrium_lbc
 
+!!*******************************************************************************
+!subroutine ws_equilibrium_waves_lbc
+!!*******************************************************************************
+!use param, only : dz, ld, nx, ny, vonk, zo
+!use sim_param, only : u, v, ustar_lbc
+!use test_filtermodule
+!#ifdef PPSCALARS
+!use scalars, only : obukhov, phi_m
+!#endif
+
+!implicit none
+
+!integer :: i, j
+!real(rprec), dimension(nx, ny) :: denom, u_avg
+!real(rprec), dimension(ld, ny) :: u1, v1
+!real(rprec) :: const
+
+!u1 = u(:,:,1)
+!v1 = v(:,:,1)
+!call test_filter(u1)
+!call test_filter(v1)
+!denom = log(0.5_rprec*dz/zo)
+!u_avg = sqrt(u1(1:nx,1:ny)**2+v1(1:nx,1:ny)**2)
+!#ifdef PPSCALARS
+!call obukhov(u_avg)
+!#else
+!ustar_lbc = u_avg*vonk/denom
+!#endif
+
+!do j = 1, ny
+!    do i = 1, nx
+!        const = -(ustar_lbc(i,j)**2)/u_avg(i,j)
+!        txz(i,j,1) = const*u1(i,j)
+!        tyz(i,j,1) = const*v1(i,j)
+!        !this is as in Moeng 84
+!#ifdef PPSCALARS
+!        dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u(i,j,1)/u_avg(i,j)   &
+!            * phi_m(i,j)
+!        dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v(i,j,1)/u_avg(i,j)   &
+!            * phi_m(i,j)
+!#else
+!        dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u(i,j,1)/u_avg(i,j)
+!        dvdz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*v(i,j,1)/u_avg(i,j)
+!#endif
+!        dudz(i,j,1) = merge(0._rprec,dudz(i,j,1),u(i,j,1).eq.0._rprec)
+!        dvdz(i,j,1) = merge(0._rprec,dvdz(i,j,1),v(i,j,1).eq.0._rprec)
+!    end do
+!end do
+!end subroutine
+
+!*******************************************************************************
+!subroutine sea_surface_drag_model() !GN
+!*******************************************************************************
+!1use param, only : ak, c_by_ustar, wave_angle, u_star, pi, z_i, total_time, dz, nx, ny
+!use grid_m, only : grid
+!use sim_param, only : u, v, w
+!use functions, only : heaviside
+!implicit none
+!real(rprec), public, dimension(:,:), allocatable :: eta, detadx, detady, us_orb, vs_orb, ws_orb
+!real(rprec), public, dimension(:,:), allocatable :: u_rel, v_rel, w_rel, u_rel_c, v_rel_c, w_rel_c 
+!real(rprec), public, dimension(:,:), allocatable :: n_u, n_v, n_w, fd_u, fd_v
+!real(rprec) :: a_amp, kx_wavno, ky_wavno, k_wavno,  cx_phase, cy_phase, c_phase, omega_freq,  g_accl
+!integer :: i
+!allocate ( eta   (nx,ny)) ; eta    = 0._rprec
+!allocate ( detadx(nx,ny)) ; detadx = 0._rprec
+!allocate ( detady(nx,ny)) ; detady = 0._rprec
+
+!allocate ( us_orb(nx,ny)) ; us_orb = 0._rprec
+!allocate ( vs_orb(nx,ny)) ; vs_orb = 0._rprec
+!allocate ( ws_orb(nx,ny)) ; ws_orb = 0._rprec
+
+!allocate ( u_rel (nx,ny)) ; u_rel  = 0._rprec
+!allocate ( v_rel (nx,ny)) ; v_rel  = 0._rprec
+!allocate ( w_rel (nx,ny)) ; w_rel  = 0._rprec
+
+!allocate ( u_rel_c (nx,ny)) ; u_rel_c  = 0._rprec
+!allocate ( v_rel_c (nx,ny)) ; v_rel_c  = 0._rprec
+!allocate ( w_rel_c (nx,ny)) ; w_rel_c  = 0._rprec
+
+!allocate ( n_u (nx,ny)) ; n_u  = 0._rprec
+!allocate ( n_v (nx,ny)) ; n_v  = 0._rprec
+!allocate ( n_w (nx,ny)) ; n_w  = 0._rprec
+
+!allocate ( fd_u(nx,ny)) ; fd_u = 0._rprec
+!allocate ( fd_v(nx,ny)) ; fd_v = 0._rprec
+
+
+!g_accl         = 9.81_rprec
+!c_phase        = c_by_ustar*u_star
+!cx_phase       = c_phase*cos(wave_angle)
+!cy_phase       = c_phase*u_star*sin(wave_angle)
+!k_wavno        = g_accl/c_phase**2
+!kx_wavno       = k_wavno*cos(wave_angle)
+!ky_wavno       = k_wavno*sin(wave_angle)
+!a_amp          = ak*k_wavno
+!omega_freq     = c_phase*k_wavno
+
+!g_accl         = g_accl*(z_i/(u_star**2))
+!c_phase        = c_phase/u_star
+!cx_phase       = cx_phase/u_star
+!cy_phase       = cy_phase/u_star  
+!kx_wavno       = kx_wavno*z_i
+!ky_wavno       = ky_wavno*z_i
+!k_wavno        = k_wavno*z_i
+!a_amp          = a_amp/z_i
+!omega_freq     = omega_freq*(z_i/u_star)
+
+!do i = 1, nx
+!  eta(i,:)    =              a_amp*cos( kx_wavno*grid%x(i) + ky_wavno*grid%y(1:ny) - omega_freq*total_time )
+!  detadx(i,:) =    -a_amp*kx_wavno*sin( kx_wavno*grid%x(i) + ky_wavno*grid%y(1:ny) - omega_freq*total_time )
+!  detady(i,:) =    -a_amp*ky_wavno*sin( kx_wavno*grid%x(i) + ky_wavno*grid%y(1:ny) - omega_freq*total_time )
+!  us_orb(i,:) =   a_amp*omega_freq*cos( kx_wavno*grid%x(i) + ky_wavno*grid%y(1:ny) - omega_freq*total_time )
+!  ws_orb(i,:) =   a_amp*omega_freq*sin( kx_wavno*grid%x(i) + ky_wavno*grid%y(1:ny) - omega_freq*total_time )
+
+!  u_rel(i,:)  =  u(i,:,1) - us_orb(i,:)
+!  v_rel(i,:)  =  v(i,:,1) - vs_orb(i,:)
+!  w_rel(i,:)  =  0.5*(w(i,:,1)+w(i,:,2)) - ws_orb(i,:)
+
+!  u_rel_c(i,:)=  u(i,:,1) - cx_phase
+!  v_rel_c(i,:)=  v(i,:,1) - cy_phase 
+!  w_rel_c(i,:)=  0.5*(w(i,:,1)+w(i,:,2))
+
+
+!  n_u(i,:)    = u_rel_c(i,:)/SQRT(u_rel_c(i,:)**2+v_rel_c(i,:)**2)
+!  n_v(i,:)    = v_rel_c(i,:)/SQRT(u_rel_c(i,:)**2+v_rel_c(i,:)**2)
+!  n_w(i,:)    = w_rel_c(i,:)/SQRT(u_rel_c(i,:)**2+v_rel_c(i,:)**2)
+
+!  fd_u(i,:) = -1.2/(1+6*a_amp**2*k_wavno**2)*(a_amp*k_wavno)*u(i,:,1)/dz*SQRT(u_rel_c(i,:)**2+v_rel_c(i,:)**2) &
+!               *(n_u(i,:)*detadx(i,:)+n_v(i,:)*detady(i,:))*heaviside(n_u(i,:)*detadx(i,:)+n_v(i,:)*detady(i,:));
+  
+  !fd_v(i,:) = -1.2/(1+6*a_amp**2*k_wavno**2)*(a_amp*k_wavno)*v(i,:,1)/dz*SQRT(u_rel_c(i,:)**2+v_rel_c(i,:)**2) &
+ !              *(n_u(i,:)*detadx(i,:)+n_v(i,:)*detady(i,:))*heaviside(n_u(i,:)*detadx(i,:)+n_v(i,:)*detady(i,:));
+
+!end do
+
+
+!end subroutine
 !*******************************************************************************
 subroutine ws_equilibrium_ubc
 !*******************************************************************************

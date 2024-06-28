@@ -6,12 +6,12 @@ cmake_minimum_required(VERSION 2.8.9)
 
 # Specify Compiler
 # Options: Intel and GNU
-set(CMAKE_Fortran_COMPILER_ID "GNU")
+set(CMAKE_Fortran_COMPILER_ID "Intel")
 
 # Set the name of the computer you are compiling on.
 # Supported computers: rockfish, panoramix, njord, marcc, darwin-brew, cheyenne, stampede
 # Otherwise, default settings are used
-set(hostname "rockfish")
+set(hostname "derecho")
 
 # Read and write binary files as big_endian or little_endian
 # Options: DEFAULT, LITTLE, or BIG
@@ -134,11 +134,11 @@ elseif (${hostname} STREQUAL "rockfish")
     endif ()
 
 # Cheyenne
-elseif (${hostname} STREQUAL "cheyenne")
+elseif (${hostname} STREQUAL "derecho")
     # Intel
-    if (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel")
-        include_directories(/glade/u/apps/ch/opt/fftw3-mpi/3.3.6-pl2/mpt/2.15f/intel/18.0.1/include/)
-        link_directories(/glade/u/apps/ch/opt/fftw3-mpi/3.3.6-pl2/mpt/2.15f/intel/18.0.1/lib/)
+    if (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel" OR ${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM" )
+	include_directories(/glade/u/apps/derecho/23.09/spack/opt/spack/fftw/3.3.10/intel-oneapi-mpi/2021.10.0/oneapi/2023.2.1/tnm7/include)
+	link_directories(/glade/u/apps/derecho/23.09/spack/opt/spack/fftw/3.3.10/intel-oneapi-mpi/2021.10.0/oneapi/2023.2.1/tnm7/lib)
     # GNU -- These have to be installed locally for now.
     elseif (${CMAKE_Fortran_COMPILER_ID} STREQUAL "GNU")
         include_directories(/software/apps/fftw3/3.3.8/gcc/5.5.0/include/)
@@ -178,7 +178,7 @@ set (Sources cfl_util.f90 clocks.f90 convec.f90 coriolis.f90 derivatives.f90 div
      sgs_param.f90 sgs_stag_util.f90 sim_param.f90 sponge.f90 stat_defs.f90
      std_dynamic.f90 string_util.f90 test_filtermodule.f90 tridag_array.f90
      time_average.f90 types.f90 wallstress.f90 init_random_seed.f90
-     iwmles.f90)
+     iwmles.f90 sea_surface_drag_model.f90)
 
 if (USE_MPI)
     add_definitions(-DPPMPI)
@@ -266,8 +266,8 @@ endif (READ_ENDIAN STREQUAL "BIG")
 
 # Intel
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-    set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -O2 -funroll-loops -no-wrap-margin -assume byterecl")
-    #set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -O0 -g -traceback -no-wrap-margin -assume byterecl")
+    #set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -O2  -funroll-loops -no-wrap-margin -assume byterecl")
+    set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -O0 -g -traceback -no-wrap-margin -assume byterecl")
 # GNU
 else (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     set (CMAKE_Fortran_FLAGS "-cpp -O2 -ffast-math -funroll-loops -fall-intrinsics -Wall -fcheck=all")

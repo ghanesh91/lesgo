@@ -222,7 +222,6 @@ else if( coriolis_forcing == 3) then
     ug = G*cos(alpha)
     vg = G*sin(alpha)
 
-    write(*,*) total_time_dim, G, alpha, ug, vg
 end if
 
 ! Coriolis: add forcing to RHS

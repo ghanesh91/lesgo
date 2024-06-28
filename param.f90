@@ -178,6 +178,13 @@ logical :: inilag = .true.
 integer :: lbc_mom = 1
 integer :: ubc_mom = 0
 
+
+!Sea surface drag model parameters !GN
+logical :: use_sea_drag_model = .false.
+real(rprec) :: ak = 0.06_rprec ! nondimensional
+real(rprec) :: c_by_ustar = 6.57 ! nondimensional
+real(rprec) :: wave_angle = 0._rprec ! radians
+
 ! Prescribe bottom and top wall streamwise velocity
 ! Only for DNS (sgs=.false.) and full channel (lbc_mom = ubc_mom = 1)
 real(rprec) :: ubot = 0.0_rprec   ! nondimensional
@@ -226,6 +233,9 @@ integer :: wbase = 100
 ! how often to write ke to check_ke.out
 integer :: nenergy = 100
 
+! how often to write ABL height to h_ABL.dat !GN
+integer :: n_h_ABL = 100
+
 ! how often to display Lagrangian CFL condition of
 ! dynamic SGS models
 integer :: lag_cfl_count = 1000
@@ -238,6 +248,13 @@ integer :: checkpoint_nskip = 10000
 logical :: tavg_calc = .false.
 integer :: tavg_nstart = 1, tavg_nend = 50000, tavg_nskip = 100
 
+! records instantaneous xy averaged tau_ij to files
+logical :: tau_xy_avg_calc = .false.
+integer :: tau_xy_avg_nstart = 1, tau_xy_avg_nend = 50000, tau_xy_avg_nskip = 100
+
+! record instantaneous sea surface drag outputs 
+logical :: sea_drag_io_flag = .false.
+integer :: sea_drag_io_nstart = 1, sea_drag_io_nend = 50000, sea_drag_io_nskip = 100
 ! turns instantaneous velocity recording on or off
 logical :: point_calc = .false.
 integer :: point_nstart=1, point_nend=50000, point_nskip=10

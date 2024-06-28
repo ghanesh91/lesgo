@@ -28,7 +28,7 @@ save
 private
 
 public interp_to_uv_grid, trilinear_interp, trilinear_interp_w, binary_search, &
-    bilinear_interp, linear_interp, cross_product, cell_indx, buff_indx,       &
+    bilinear_interp, linear_interp, cross_product, heaviside,heaviside_scalar, cell_indx, buff_indx,       &
     interp_to_w_grid, get_tau_wall_bot, get_tau_wall_top, count_lines
 
 character (*), parameter :: mod_name = 'functions'
@@ -806,6 +806,40 @@ cross_product(2) = u(3)*v(1)-u(1)*v(3)
 cross_product(3) = u(1)*v(2)-u(2)*v(1)
 
 end function cross_product
+
+
+!*******************************************************************************
+function heaviside(xq) result(vq)
+!******************************************************************************
+
+! sgn(x) = 2 H(x) -1
+! H(x)   = 0.5 * (sgn(x) + 1 )
+
+implicit none
+real(rprec), dimension(:), intent(in) :: xq
+real(rprec), dimension(:), allocatable :: vq
+integer :: N
+! Allocate output
+N = size(xq)
+allocate(vq(N))
+vq = 0.5_rprec*(SIGN(1.0_rprec,xq) + 1.0_rprec)
+
+end function heaviside
+
+!*******************************************************************************
+function heaviside_scalar(xq) result(vq)
+!******************************************************************************
+
+! sgn(x) = 2 H(x) -1
+! H(x)   = 0.5 * (sgn(x) + 1 )
+
+implicit none
+real(rprec), intent(in) :: xq
+real(rprec) :: vq
+integer :: N
+vq = 0.5_rprec*(SIGN(1.0_rprec,xq) + 1.0_rprec)
+
+end function heaviside_scalar
 
 !*******************************************************************************
 function binary_search(arr,val) result(low)

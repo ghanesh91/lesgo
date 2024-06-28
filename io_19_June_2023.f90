@@ -151,10 +151,6 @@ use messages
 use functions, only : binary_search, interp_to_w_grid
 use grid_m, only : grid
 use coriolis, only : alpha
-#ifdef PPSCALARS
-use scalars, only : theta, scal_bot, pi_x, pi_y, pi_z, lbc_scal
-#endif
-
 implicit none
 character (64) :: fname
 integer :: jx, jy, jz, k
@@ -166,12 +162,6 @@ real(rprec) :: h_ABL,tau_wall, tau_wall_global, tau_wall_dummy
 real(rprec), dimension(:), allocatable :: tau_total_global,tau_total_xz_global, tau_total_yz_global
 real(rprec), dimension(:), allocatable :: tau_Re_xz_global, tau_Re_yz_global, tau_SGS_xz_global, tau_SGS_yz_global
 real(rprec), dimension(:), allocatable :: v_w_xy_avg_global, u_w_xy_avg_global
-#ifdef PPSCALARS
-real(rprec), allocatable, dimension(:,:,:) :: theta_w_temp
-real(rprec), dimension(:), allocatable :: theta_w_xy_avg, wtheta_w_xy_avg, wpthetap_w_xy_avg, pi_z_xy_avg, pi_z_total_xy_avg
-real(rprec), dimension(:), allocatable :: theta_w_xy_avg_global, wpthetap_w_xy_avg_global, pi_z_xy_avg_global, pi_z_total_xy_avg_global
-real(rprec) :: use_scal_bot
-#endif
 ! Initialize variables
 allocate ( tau_Re_xz(lbz:nz) )           ; tau_Re_xz    = 0.0_rprec
 allocate ( tau_Re_yz(lbz:nz) )           ; tau_Re_yz    = 0.0_rprec
@@ -196,39 +186,9 @@ allocate ( tau_total_xz_global(1:nz_tot)); tau_total_xz_global = 0.0_rprec
 allocate ( tau_total_yz_global(1:nz_tot)); tau_total_yz_global = 0.0_rprec
 allocate ( u_w_xy_avg_global(1:nz_tot))  ; u_w_xy_avg_global = 0.0_rprec
 allocate ( v_w_xy_avg_global(1:nz_tot))  ; v_w_xy_avg_global = 0.0_rprec
-#ifdef PPSCALARS
-allocate ( theta_w_temp(nx,ny,lbz:nz) )      ; theta_w_temp         = 0.0_rprec
-allocate ( theta_w_xy_avg(lbz:nz)     )      ; theta_w_xy_avg       = 0.0_rprec
-allocate ( wtheta_w_xy_avg(lbz:nz)    )      ; wtheta_w_xy_avg      = 0.0_rprec
-allocate ( wpthetap_w_xy_avg(lbz:nz)  )      ; wpthetap_w_xy_avg    = 0.0_rprec
-allocate ( pi_z_xy_avg(lbz:nz)        )      ; pi_z_xy_avg          = 0.0_rprec
-allocate ( pi_z_total_xy_avg(lbz:nz)  )      ; pi_z_total_xy_avg    = 0.0_rprec
-allocate ( theta_w_xy_avg_global(1:nz_tot))    ;   theta_w_xy_avg_global    = 0.0_rprec
-allocate ( wpthetap_w_xy_avg_global(1:nz_tot)) ; wpthetap_w_xy_avg_global   = 0.0_rprec
-allocate ( pi_z_xy_avg_global(1:nz_tot))       ;   pi_z_xy_avg_global       = 0.0_rprec
-allocate ( pi_z_total_xy_avg_global(1:nz_tot)) ;   pi_z_total_xy_avg_global = 0.0_rprec
-#endif
 !Interpolate u,v to w grid
 u_w_temp(1:nx,1:ny,lbz:nz) = interp_to_w_grid(u(1:nx,1:ny,lbz:nz), lbz )
 v_w_temp(1:nx,1:ny,lbz:nz) = interp_to_w_grid(v(1:nx,1:ny,lbz:nz), lbz )
-#ifdef PPSCALARS
-
-#ifdef PPMPI
-call mpi_bcast(scal_bot,1,mpi_rprec,0,comm,ierr)
-#endif
-
-theta_w_temp(1:nx,1:ny,lbz:nz) = interp_to_w_grid(theta(1:nx,1:ny,lbz:nz), lbz )
-if ( rank == 0 ) then
-    !print*,"scal_bot in io", rank, total_time, scal_bot
-    theta_w_temp(1:nx,1:ny,1)=scal_bot
-endif
-
-if (lbc_scal == 2) then
-   use_scal_bot = 1.0
-else
-   use_scal_bot = 0.0
-endif 
-#endif
 
 do jz = 1, nz
       u_w_xy_avg(jz)   =   u_w_xy_avg(jz) + sum( u_w_temp(1:nx,1:ny,jz) )
@@ -238,11 +198,6 @@ do jz = 1, nz
         w_xy_avg(jz)   =     w_xy_avg(jz) + sum(   w(1:nx,1:ny,jz) )
     tau_SGS_xz(jz)     =   tau_SGS_xz(jz) + sum( txz(1:nx,1:ny,jz) )
     tau_SGS_yz(jz)     =   tau_SGS_yz(jz) + sum( tyz(1:nx,1:ny,jz) )
-#ifdef PPSCALARS
-      theta_w_xy_avg(jz) =  theta_w_xy_avg(jz) + sum( theta_w_temp(1:nx,1:ny,jz) - use_scal_bot*scal_bot)
-     wtheta_w_xy_avg(jz) = wtheta_w_xy_avg(jz) + sum( (theta_w_temp(1:nx,1:ny,jz) - use_scal_bot*scal_bot) *w(1:nx,1:ny,jz) )
-         pi_z_xy_avg(jz) =     pi_z_xy_avg(jz) + sum( pi_z(1:nx,1:ny,jz) )
-#endif
 end do
 
 ! Perform spatial averaging
@@ -253,31 +208,14 @@ uw_xy_avg  = uw_xy_avg/(nx*ny)
 vw_xy_avg  = vw_xy_avg/(nx*ny)
 tau_SGS_xz = tau_SGS_xz/(nx*ny)
 tau_SGS_yz = tau_SGS_yz/(nx*ny)
-#ifdef PPSCALARS
- theta_w_xy_avg =  theta_w_xy_avg/(nx*ny)
-wtheta_w_xy_avg = wtheta_w_xy_avg/(nx*ny)
-    pi_z_xy_avg =     pi_z_xy_avg/(nx*ny)
-#endif
-!if (coord == 0) then
-!   do k=1,nz
-!    print*,"coord, t01,t, wt, pi, scal_bot", coord, total_time, theta_w_xy_avg(k), wtheta_w_xy_avg(k), pi_z_xy_avg(k), scal_bot
-!   end do
-!endif
-!if (coord == 1) then
-!   do k=1,nz
-!    print*,"coord, t01,t, wt, pi, scal_bot", coord, total_time, theta_w_xy_avg(k), wtheta_w_xy_avg(k), pi_z_xy_avg(k), scal_bot
-!   end do
-!endif
+
 !Compute Re stress, SGS stress and total stress
 tau_Re_xz    = uw_xy_avg-u_w_xy_avg*w_xy_avg
 tau_Re_yz    = vw_xy_avg-v_w_xy_avg*w_xy_avg
 tau_total_xz = -tau_Re_xz-tau_SGS_xz
 tau_total_yz = -tau_Re_yz-tau_SGS_yz
 tau_total    = sqrt(tau_total_xz**2+tau_total_yz**2)
-#ifdef PPSCALARS
-wpthetap_w_xy_avg =   wtheta_w_xy_avg - theta_w_xy_avg*w_xy_avg
-pi_z_total_xy_avg = - wpthetap_w_xy_avg - pi_z_xy_avg
-#endif 
+
 !Get the wall stress
 if (rank == 0) then
 tau_wall = tau_total(1)
@@ -288,6 +226,7 @@ end if
 !tau_wall from rank 0 to all other procs and stores the value in tau_wall_dummy
 call mpi_allreduce (tau_wall, tau_wall_dummy, 1, MPI_RPREC, MPI_SUM,  comm, ierr)
 tau_wall_global=tau_wall_dummy
+
 !Gather total stress and its components into global array using MPI_GATHERV to proc 0 for visualization purposes
 do k=1, nproc
    displs(k)=(k-1)*(nz-1)
@@ -303,28 +242,12 @@ call MPI_Gatherv (  tau_SGS_yz(1:nz-1), nz-1, MPI_RPREC, tau_SGS_yz_global  , rc
 call MPI_Gatherv (  u_w_xy_avg(1:nz-1), nz-1, MPI_RPREC, u_w_xy_avg_global  , rcounts, displs, MPI_RPREC, 0, comm, ierr)
 call MPI_Gatherv (  v_w_xy_avg(1:nz-1), nz-1, MPI_RPREC, v_w_xy_avg_global  , rcounts, displs, MPI_RPREC, 0, comm, ierr)
 
-#ifdef PPSCALARS
-call MPI_Gatherv (     theta_w_xy_avg(1:nz-1), nz-1, MPI_RPREC,    theta_w_xy_avg_global  , rcounts, displs, MPI_RPREC, 0, comm, ierr)
-call MPI_Gatherv (  wpthetap_w_xy_avg(1:nz-1), nz-1, MPI_RPREC, wpthetap_w_xy_avg_global  , rcounts, displs, MPI_RPREC, 0, comm, ierr)
-call MPI_Gatherv (        pi_z_xy_avg(1:nz-1), nz-1, MPI_RPREC,       pi_z_xy_avg_global  , rcounts, displs, MPI_RPREC, 0, comm, ierr)
-call MPI_Gatherv (  pi_z_total_xy_avg(1:nz-1), nz-1, MPI_RPREC, pi_z_total_xy_avg_global  , rcounts, displs, MPI_RPREC, 0, comm, ierr)
-#endif
 !if (rank ==0) then
 !do jz=1,nz_tot
 !print*, "t2, tau_tot_global, jz", total_time, tau_total_global(jz), jz
 !end do
 !end if
 
-!if (rank == 0) then
-!do jz=1,nz_tot
-!   print*,"t2,t ,pi, wt, pit ,jz",total_time, theta_w_xy_avg_global(jz), pi_z_xy_avg_global(jz), wpthetap_w_xy_avg_global(jz), pi_z_total_xy_avg_global(jz) ,jz
-!end do
-!end if
-!if (rank == 1) then
-!do k=1,nz-1
-!   print*,"t3,t, pi,wt,pit,jz", total_time, theta_w_xy_avg(k), pi_z_xy_avg(k), wpthetap_w_xy_avg(k),pi_z_total_xy_avg(k), k 
-!end do
-!end if
 #endif
 
 
@@ -361,12 +284,6 @@ if (rank==0) then
            write(13,rec=7) tau_SGS_yz_global(1:nz_tot)
            write(13,rec=8) u_w_xy_avg_global(1:nz_tot)
            write(13,rec=9) v_w_xy_avg_global(1:nz_tot)
-#ifdef PPSCALARS
-           write(13,rec=10) theta_w_xy_avg_global(1:nz_tot)
-           write(13,rec=11) wpthetap_w_xy_avg_global(1:nz_tot)
-           write(13,rec=12) pi_z_xy_avg_global(1:nz_tot)
-           write(13,rec=13) pi_z_total_xy_avg_global(1:nz_tot)
-#endif
            close(13)
         end if
     end if

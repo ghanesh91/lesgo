@@ -453,6 +453,14 @@ do
                 Read (buff(equal_pos+1:), *) lbc_mom
             case ('UBC_MOM')
                 Read (buff(equal_pos+1:), *) ubc_mom
+            case ('USE_SEA_DRAG_MODEL')
+                Read (buff(equal_pos+1:), *) use_sea_drag_model
+            case ('AK')
+                Read (buff(equal_pos+1:), *) ak
+            case ('C_BY_USTAR')
+                Read (buff(equal_pos+1:), *) c_by_ustar
+            case ('WAVE_ANGLE')
+                Read (buff(equal_pos+1:), *) wave_angle
             case ('UBOT')
                 Read (buff(equal_pos+1:), *) ubot
             case ('UTOP')
@@ -573,6 +581,24 @@ do
                 read (buff(equal_pos+1:), *) wbase
             case ('NENERGY')
                 read (buff(equal_pos+1:), *) nenergy
+            case ('N_H_ABL')
+                read (buff(equal_pos+1:), *) n_h_ABL !GN
+            case ('TAU_XY_AVG_CALC') !GN
+                read (buff(equal_pos+1:), *) tau_xy_avg_calc
+            case ('TAU_XY_AVG_NSTART') !GN
+                read (buff(equal_pos+1:), *) tau_xy_avg_nstart
+            case ('TAU_XY_AVG_NEND') !GN
+                read (buff(equal_pos+1:), *) tau_xy_avg_nend
+            case ('TAU_XY_AVG_NSKIP') !GN
+                read (buff(equal_pos+1:), *) tau_xy_avg_nskip
+            case ('SEA_DRAG_IO_FLAG') !GN
+                read (buff(equal_pos+1:), *) sea_drag_io_flag
+            case ('SEA_DRAG_IO_NSTART') !GN
+                read (buff(equal_pos+1:), *) sea_drag_io_nstart
+            case ('SEA_DRAG_IO_NEND') !GN
+                read (buff(equal_pos+1:), *) sea_drag_io_nend
+            case ('SEA_DRAG_IO_NSKIP') !GN
+                read (buff(equal_pos+1:), *) sea_drag_io_nskip
             case ('LAG_CFL_COUNT')
                 read (buff(equal_pos+1:), *) lag_cfl_count
             case ('CHECKPOINT_DATA')
@@ -868,6 +894,8 @@ do
                 read (buff(equal_pos+1:), *) passive_scalar
             case ('PR_SGS')
                 read (buff(equal_pos+1:), *) Pr_sgs
+            !case ('USE_CNBL_INIT_COND')
+            !    read (buff(equal_pos+1:), *) use_CNBL_init_cond
             case default
                 if (coord == 0) write(*,*) 'Found unused data value in '       &
                     // block_name // ' block: ' // buff(1:equal_pos-1)
