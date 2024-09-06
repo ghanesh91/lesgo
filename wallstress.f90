@@ -241,17 +241,17 @@ do j = 1, ny
                   write(12) time_wavy
                   close(12)
               endif
-           else
+           else if (jt_total .gt. nsteps_wavy) then
               inquire (file='time_wavy.out', exist=exst)
               if (exst) then
                   open(12, file='time_wavy.out', form='unformatted', convert=read_endian)
                   read(12) time_wavy
                   close(12)
-                  if(coord==0) print*,"time_wavy", time_wavy
+                  if(coord==0) print*,"time_wavy",jt_total, nsteps_wavy, time_wavy
               end if
            endif
-           txz(i,j,1) = txz(i,j,1) + fd_u(i,j)*dz*(1-exp(-0.1*(total_time-time_wavy)**2))
-           tyz(i,j,1) = tyz(i,j,1) + fd_v(i,j)*dz*(1-exp(-0.1*(total_time-time_wavy)**2))
+           txz(i,j,1) = txz(i,j,1) + fd_u(i,j)*dz*(1-exp(-(total_time-time_wavy)**2))
+           tyz(i,j,1) = tyz(i,j,1) + fd_v(i,j)*dz*(1-exp(-(total_time-time_wavy)**2))
            ustar_lbc(i,j) = sqrt(sqrt(txz(i,j,1)**2+tyz(i,j,1)**2)) 
            !this is as in Moeng 84
 #ifdef PPSCALARS

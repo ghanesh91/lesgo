@@ -462,7 +462,7 @@ do
             case ('WAVE_ANGLE')
                 Read (buff(equal_pos+1:), *) wave_angle
             case ('NSTEPS_WAVY')
-                Read (buff(equal_pos+1:), *) NSTEPS_WAVY
+                Read (buff(equal_pos+1:), *) nsteps_wavy
             case ('UBOT')
                 Read (buff(equal_pos+1:), *) ubot
             case ('UTOP')
