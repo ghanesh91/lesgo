@@ -208,6 +208,24 @@ if(use_sea_drag_model) then
            endif
         enddo
         enddo
+        if (jt_total .eq. nsteps_wavy) then
+              time_wavy = total_time
+              if (coord==0) then
+                  open(12, file='time_wavy.out', form='unformatted', convert=write_endian)
+                  write(12) time_wavy
+                  close(12)
+                  if (coord==0) print*,"saved time_wavy", coord, jt_total, nsteps_wavy, time_wavy
+              endif
+        endif
+        if (jt_total .gt. nsteps_wavy) then
+              inquire (file='time_wavy.out', exist=exst)
+              if (exst) then
+                  open(13, file='time_wavy.out', form='unformatted', convert=read_endian)
+                  read(13) time_wavy
+                  close(13)
+                  if(coord==0) print*,"time_wavy",jt_total, nsteps_wavy, time_wavy
+              end if
+        endif
 else
         u1 = u(:,:,1)
         v1 = v(:,:,1)
@@ -234,24 +252,6 @@ do j = 1, ny
         tyz(i,j,1) = const*v1(i,j)
         
         if(use_sea_drag_model) then
-           if (jt_total .eq. nsteps_wavy) then
-              time_wavy = total_time
-              if (coord==0) then
-                  open(12, file='time_wavy.out', form='unformatted', convert=write_endian)
-                  write(12) time_wavy
-                  close(12)
-                  print*,"time_wavy",jt_total, nsteps_wavy, time_wavy
-              endif
-           endif
-           if (jt_total .gt. nsteps_wavy) then
-              inquire (file='time_wavy.out', exist=exst)
-              if (exst) then
-                  open(12, file='time_wavy.out', form='unformatted', convert=read_endian)
-                  read(12) time_wavy
-                  close(12)
-                  if(coord==0) print*,"time_wavy",jt_total, nsteps_wavy, time_wavy
-              end if
-           endif
            txz(i,j,1) = txz(i,j,1) + fd_u(i,j)*dz*(1-exp(-(total_time-time_wavy)**2))
            tyz(i,j,1) = tyz(i,j,1) + fd_v(i,j)*dz*(1-exp(-(total_time-time_wavy)**2))
            ustar_lbc(i,j) = sqrt(sqrt(txz(i,j,1)**2+tyz(i,j,1)**2)) 
