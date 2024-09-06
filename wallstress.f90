@@ -240,8 +240,10 @@ do j = 1, ny
                   open(12, file='time_wavy.out', form='unformatted', convert=write_endian)
                   write(12) time_wavy
                   close(12)
+                  print*,"time_wavy",jt_total, nsteps_wavy, time_wavy
               endif
-           else if (jt_total .gt. nsteps_wavy) then
+           endif
+           if (jt_total .gt. nsteps_wavy) then
               inquire (file='time_wavy.out', exist=exst)
               if (exst) then
                   open(12, file='time_wavy.out', form='unformatted', convert=read_endian)
