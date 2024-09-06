@@ -242,7 +242,7 @@ do j = 1, ny
                   close(12)
               endif
            else
-              inquire (file='scal_bot.out', exist=exst)
+              inquire (file='time_wavy.out', exist=exst)
               if (exst) then
                   open(12, file='time_wavy.out', form='unformatted', convert=read_endian)
                   read(12) time_wavy
