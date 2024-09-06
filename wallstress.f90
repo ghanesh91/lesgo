@@ -170,7 +170,7 @@ end subroutine ws_dns_ubc
 !*******************************************************************************
 subroutine ws_equilibrium_lbc
 !*******************************************************************************
-use param, only : dz, ld, nx, ny, vonk, zo, use_sea_drag_model, jt_total, total_time, path
+use param, only : coord, read_endian, dz, ld, nx, ny, vonk, zo, use_sea_drag_model, jt_total, total_time, path, nsteps_wavy
 use param, only : sea_drag_io_flag, sea_drag_io_nstart, sea_drag_io_nend, sea_drag_io_nskip, write_endian
 use sim_param, only : u, v, ustar_lbc
 use sea_surface_drag_model
@@ -186,8 +186,8 @@ integer :: i, j
 character (64) :: fname
 real(rprec), dimension(nx, ny) :: denom, u_avg
 real(rprec), dimension(ld, ny) :: u1, v1
-real(rprec) :: const
-
+real(rprec) :: const, time_wavy
+logical :: exst
 
 if(use_sea_drag_model) then
         call sea_surface_drag_model_forces()
@@ -234,8 +234,25 @@ do j = 1, ny
         tyz(i,j,1) = const*v1(i,j)
         
         if(use_sea_drag_model) then
-           txz(i,j,1) = txz(i,j,1) + fd_u(i,j)*dz
-           tyz(i,j,1) = tyz(i,j,1) + fd_v(i,j)*dz
+           if (jt_total .eq. nsteps_wavy) then
+              time_wavy = total_time
+              if (coord==0) then
+                  open(12, file='time_wavy.out', form='unformatted', convert=write_endian)
+                  write(12) time_wavy
+                  close(12)
+              endif
+           else
+              inquire (file='scal_bot.out', exist=exst)
+              if (exst) then
+                  open(12, file='time_wavy.out', form='unformatted', convert=read_endian)
+                  read(12) time_wavy
+                  close(12)
+                  if(coord==0) print*,"time_wavy", time_wavy
+              end if
+           endif
+           txz(i,j,1) = txz(i,j,1) + fd_u(i,j)*dz*(1-exp(-0.1*(total_time-time_wavy)**2))
+           tyz(i,j,1) = tyz(i,j,1) + fd_v(i,j)*dz*(1-exp(-0.1*(total_time-time_wavy)**2))
+           ustar_lbc(i,j) = sqrt(sqrt(txz(i,j,1)**2+tyz(i,j,1)**2)) 
            !this is as in Moeng 84
 #ifdef PPSCALARS
            dudz(i,j,1) = ustar_lbc(i,j)/(0.5_rprec*dz*vonK)*u_rel(i,j)/u_avg(i,j)   &

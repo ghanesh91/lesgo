@@ -362,7 +362,7 @@ close(11)
 
 if (lbc_scal == 2 .and. coord==0) then
     print*,"Writing scal_bot to checkpoint file", scal_bot
-    open(12, file='scal_bot.out', form='unformatted', convert=read_endian)
+    open(12, file='scal_bot.out', form='unformatted', convert=write_endian)
     write(12) scal_bot
     close(12)
 end if

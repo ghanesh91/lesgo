@@ -461,6 +461,8 @@ do
                 Read (buff(equal_pos+1:), *) c_by_ustar
             case ('WAVE_ANGLE')
                 Read (buff(equal_pos+1:), *) wave_angle
+            case ('NSTEPS_WAVY')
+                Read (buff(equal_pos+1:), *) NSTEPS_WAVY
             case ('UBOT')
                 Read (buff(equal_pos+1:), *) ubot
             case ('UTOP')

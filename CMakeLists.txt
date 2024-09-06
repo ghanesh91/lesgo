@@ -20,7 +20,7 @@ set(READ_ENDIAN "DEFAULT")
 
 # Options to enable various features in the code
 option(USE_MPI "Enable parallelization support." ON)
-option(USE_CPS "Enable concurrent precursor simulations." OFF)
+option(USE_CPS "Enable concurrent precursor simulations." ON)
 option(USE_HIT "Enable homogeneous isotropic turbulence input." OFF)
 option(USE_LVLSET "Enable level set." OFF)
 option(USE_TURBINES "Enable actuator disk model without rotation." OFF)
