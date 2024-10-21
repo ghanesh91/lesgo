@@ -1,11 +1,10 @@
-function [u_w,v_w,w] = getAvgVelW(p)
-%UNTITLED3 Summary of this function goes here
-%   Detailed explanation goes here
+function [ u,v,w ] = getAvgVelUV(p)
+%GETAVGVELUV reads from output/vel_uv_avg*.bin
 
 for i=1:p.nproc
     
     % Open the file
-    fname = ['./output/velw_avg.c',num2str(i-1),'.bin'];
+    fname = ['./output/veluv_avg.c',num2str(i-1),'.bin'];
     fid=fopen(fname,'r');
     if (fid < 0) 
         error('getSnap:fname',['Could not open file ',fname]);
@@ -16,19 +15,16 @@ for i=1:p.nproc
     zmax=p.zmax_buf(i);
     
     % Scan the data
-    %dummy=fread(fid,p.nx*p.ny*p.nz2,'double',p.fmt); 
-    %w(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
-    
-    % Scan the data
     N = p.nx*p.ny*p.nz2;
     dummy=fread(fid,N, 'double',p.fmt);
-    u_w(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
+    u(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
     dummy=fread(fid,N, 'double',p.fmt); 
-    v_w(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
+    v(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
     dummy=fread(fid,N, 'double',p.fmt); 
     w(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
     
     fclose(fid);
 end
+
 end
 
