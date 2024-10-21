@@ -1,4 +1,4 @@
-function [ p ] = get_pres_snap(p,step)
+function [ p_uv ] = get_pres_snap(p,step)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -18,7 +18,7 @@ for i=1:p.nproc
     % Scan the data
     N = p.nx*p.ny*p.nz2;
     dummy=fread(fid,N,'double',p.fmt); 
-    p(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
+    p_uv(1:p.nx,1:p.ny,zmin:zmax)=reshape(dummy,p.nx,p.ny,p.nz2);
     
     fclose(fid);
 

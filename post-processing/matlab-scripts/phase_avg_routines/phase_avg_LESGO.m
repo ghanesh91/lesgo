@@ -44,11 +44,12 @@ for i = 1: Nx+1
     x(i) = (i - 1)*dx;
 end
 
-z=zeros(Nz,1);
+z=zeros(1,Nz+1);
+zw=zeros(1,Nz+1);
 for k=1:Nz+1
-    z(k)=(k-0.5)*dz;
+    z(1,k)=(k-0.5)*dz;
 end
-zw = z-dz/2;
+zw(1,:) = z-dz/2;
 
 
 kx  = [0:Nx/2, -Nx/2+1:-1] * (2 * pi / Lx);
@@ -106,7 +107,7 @@ tau33_SGS_phase_avg= zeros(Nx, Nz);
  tau11_wave_phase_avg= zeros(Nx, Nz);
  tau33_wave_phase_avg= zeros(Nx, Nz);
 
-n_array = 725000:500:925000;
+n_array = 725000%:500:925000;
 
 Nt = numel(n_array)
 addpath('/Users/ghaneshnarasimhan/Library/Mobile Documents/com~apple~CloudDocs/Desktop/JHU/LESGO/lesgo/post-processing/matlab-scripts/');
@@ -125,21 +126,20 @@ for n = n_array
 
    time = time_array(n);
    
-   eta_xy  = zeros(Nx+1,Ny+1);
-   for i=1:Nx+1
-       for j=1:Ny+1
-        eta_xy(:,:)  = a_amp*cos( kx_wavno*x(i) + ky_wavno*y(j) - omega_freq*time );
+   eta  = zeros(Nx,Ny);
+   for i=1:Nx
+       for j=1:Ny
+        eta(i,j)  = a_amp*cos( kx_wavno*x(i) + ky_wavno*y(j) - omega_freq*time );
        end
    end
-   eta = eta_xy(:,1);%monochromatic wave
-
-   p_uv         = get_pres_snap(p,step);
-   [u,v,w_uv] = get_snap(p,step);
+   
+   p_uv         = get_pres_snap(p,n);
+   [u,v,w_uv] = getSnap(p,n);
   
    z_phys = zeros(Nx,Nz);
    x_phys = zeros(Nx,Nz);
    for i=1:Nx
-        z_phys(i,:) = eta(i,1)+(zw(:)/Hbar).*(Hbar-eta(i,1));%zw(:).*(Hbar-eta_phase_avg(i))+eta_phase_avg(i);
+        z_phys(i,:) = eta(i,1)+(zw(1,1:Nz)/Hbar).*(Hbar-eta(i,1));%zw(:).*(Hbar-eta_phase_avg(i))+eta_phase_avg(i);
         x_phys(i,:) = x(i);
    end
 
@@ -198,21 +198,21 @@ for n = n_array
    %Calc Sij
    Sij=zeros(Nx,Ny,Nz,9);
    %Sij=calc_Sij(x,y,z_phys,u_w,v_w,w,Lx,Ly,Nx,Ny,Nz);
-   Sij=calc_Sij_3D(kx_3D,ky_3D,dzw_3D,zetaz_w,u_w,v_w,w,Nx,Ny,Nz,zw);
+   Sij=calc_Sij_3D(kx_3D,ky_3D,dzw_3D,zetaz_w,u_w(1:Nx,1:Ny,1:Nz),v_w(1:Nx,1:Ny,1:Nz),w(1:Nx,1:Ny,1:Nz),Nx,Ny,Nz,zw(1,1:Nz));
    
   
    %tau_SGS
-   [ txx,tyy,tzz,txy,txz,tyz ] = get_tau_SGS(p,step);
+   [ txx,tyy,tzz,txy,txz,tyz ] = get_tau_SGS(p,n);
    tau13_SGS=zeros(Nx,Ny,Nz);
    tau31_SGS=zeros(Nx,Ny,Nz);
    tau11_SGS=zeros(Nx,Ny,Nz);
    tau33_SGS=zeros(Nx,Ny,Nz);
 
    
-   tau13_SGS(:,:,:)=txx.*zetax_w(:,:,:)./zetaz_w(:,:,:)  + txz;
-   tau31_SGS(:,:,:)=txz./zetaz_w(:,:,:);
-   tau11_SGS(:,:,:)=txx./zetaz_w(:,:,:);
-   tau33_SGS(:,:,:)=txz.*zetax_w(:,:,:)./zetaz_w(:,:,:)  + tzz;
+   tau13_SGS(:,:,:)=txx(1:Nx,1:Ny,1:Nz).*zetax_w(:,:,:)./zetaz_w(:,:,:)  + txz(1:Nx,1:Ny,1:Nz);
+   tau31_SGS(:,:,:)=txz(1:Nx,1:Ny,1:Nz)./zetaz_w(:,:,:);
+   tau11_SGS(:,:,:)=txx(1:Nx,1:Ny,1:Nz)./zetaz_w(:,:,:);
+   tau33_SGS(:,:,:)=txz(1:Nx,1:Ny,1:Nz).*zetax_w(:,:,:)./zetaz_w(:,:,:)  + tzz(1:Nx,1:Ny,1:Nz);
    
 
    tau13_nu=zeros(Nx,Ny,Nz);
@@ -270,34 +270,34 @@ for n = n_array
     tau11_nu_xz = zeros(Nx,Nz);
     tau33_nu_xz = zeros(Nx,Nz);
 
-   u_xz(:,:)   = squeeze(mean(  u(:,:,:),2));
-   u_w_xz(:,:) = squeeze(mean(u_w(:,:,:),2));
+   u_xz(:,:)   = squeeze(mean(  u(1:Nx,1:Ny,1:Nz),2));
+   u_w_xz(:,:) = squeeze(mean(u_w(1:Nx,1:Ny,1:Nz),2));
 
-   w_xz(:,:)   = squeeze(mean(  w(:,:,:),2));
+   w_xz(:,:)   = squeeze(mean(  w(1:Nx,1:Ny,1:Nz),2));
 
-   p_xz(:,:)   = squeeze(mean( pp(:,:,:),2));
-   p_w_xz(:,:) = squeeze(mean(p_w(:,:,:),2));  
+   p_xz(:,:)   = squeeze(mean( p_uv(1:Nx,1:Ny,1:Nz),2));
+   p_w_xz(:,:) = squeeze(mean(p_w(1:Nx,1:Ny,1:Nz),2));  
    
-   W_xz(:,:)   = squeeze(mean(W(:,:,:),2));
-   U_xz(:,:)   = squeeze(mean(U(:,:,:),2)); 
-   taup_13_xz(:,:) = squeeze(mean(taup_13(:,:,:),2));
-   taup_11_xz(:,:) = squeeze(mean(taup_11(:,:,:),2));
+   W_xz(:,:)   = squeeze(mean(W(1:Nx,1:Ny,1:Nz),2));
+   U_xz(:,:)   = squeeze(mean(U(1:Nx,1:Ny,1:Nz),2)); 
+   taup_13_xz(:,:) = squeeze(mean(taup_13(1:Nx,1:Ny,1:Nz),2));
+   taup_11_xz(:,:) = squeeze(mean(taup_11(1:Nx,1:Ny,1:Nz),2));
 
-        uW_xz(:,:) = squeeze(mean(u_w(:,:,:).*W(:,:,:),2));
-        uU_xz(:,:) = squeeze(mean(u_w(:,:,:).*U(:,:,:),2));
-        wW_xz(:,:) = squeeze(mean(w(:,:,:).*W(:,:,:),2));
-        wU_xz(:,:) = squeeze(mean(w(:,:,:).*U(:,:,:),2));
+        uW_xz(:,:) = squeeze(mean(u_w(1:Nx,1:Ny,1:Nz).*W(1:Nx,1:Ny,1:Nz),2));
+        uU_xz(:,:) = squeeze(mean(u_w(1:Nx,1:Ny,1:Nz).*U(1:Nx,1:Ny,1:Nz),2));
+        wW_xz(:,:) = squeeze(mean(w(1:Nx,1:Ny,1:Nz).*W(1:Nx,1:Ny,1:Nz),2));
+        wU_xz(:,:) = squeeze(mean(w(1:Nx,1:Ny,1:Nz).*U(1:Nx,1:Ny,1:Nz),2));
         
 
-   tau13_SGS_xz(:,:) = squeeze(mean(tau13_SGS(:,:,:),2));
-   tau31_SGS_xz(:,:) = squeeze(mean(tau31_SGS(:,:,:),2));
-   tau11_SGS_xz(:,:) = squeeze(mean(tau11_SGS(:,:,:),2));
-   tau33_SGS_xz(:,:) = squeeze(mean(tau33_SGS(:,:,:),2));
+   tau13_SGS_xz(:,:) = squeeze(mean(tau13_SGS(1:Nx,1:Ny,1:Nz),2));
+   tau31_SGS_xz(:,:) = squeeze(mean(tau31_SGS(1:Nx,1:Ny,1:Nz),2));
+   tau11_SGS_xz(:,:) = squeeze(mean(tau11_SGS(1:Nx,1:Ny,1:Nz),2));
+   tau33_SGS_xz(:,:) = squeeze(mean(tau33_SGS(1:Nx,1:Ny,1:Nz),2));
 
-    tau13_nu_xz(:,:) = squeeze(mean(tau13_nu(:,:,:),2));
-    tau31_nu_xz(:,:) = squeeze(mean(tau31_nu(:,:,:),2));
-    tau11_nu_xz(:,:) = squeeze(mean(tau11_nu(:,:,:),2));
-    tau33_nu_xz(:,:) = squeeze(mean(tau33_nu(:,:,:),2));
+    tau13_nu_xz(:,:) = squeeze(mean(tau13_nu(1:Nx,1:Ny,1:Nz),2));
+    tau31_nu_xz(:,:) = squeeze(mean(tau31_nu(1:Nx,1:Ny,1:Nz),2));
+    tau11_nu_xz(:,:) = squeeze(mean(tau11_nu(1:Nx,1:Ny,1:Nz),2));
+    tau33_nu_xz(:,:) = squeeze(mean(tau33_nu(1:Nx,1:Ny,1:Nz),2));
 
    %disp('reached')
    %perform phase shift in x-direction
