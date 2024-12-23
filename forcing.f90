@@ -119,7 +119,7 @@ fza = 0._rprec
 call atm_lesgo_forcing ()
 #endif
 
-if (use_sea_drag_model .and. use_exp_decay) then
+if (use_sea_drag_model .and. use_exp_decay) then !GN-need to validate exp decay implementation (22 Dec 2024)
    do k=1,nz
       fxa(:,:,k)=fd_u(:,:)*exp(-k_wavno*(grid%z(k)-0.5_rprec*dz))
       fya(:,:,k)=fd_v(:,:)*exp(-k_wavno*(grid%z(k)-0.5_rprec*dz))
@@ -130,9 +130,9 @@ if (use_sea_drag_model .and. use_exp_decay) then
       fya(:,:,1)=0._rprec
    endif
 
-   call mpi_sync_real_array( fxa(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
-   call mpi_sync_real_array( fya(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
-   call mpi_sync_real_array( fza(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+   !call mpi_sync_real_array( fxa(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+   !call mpi_sync_real_array( fya(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
+   !call mpi_sync_real_array( fza(1:nx,1:ny,lbz:nz), 0, MPI_SYNC_DOWNUP )
 endif
 end subroutine forcing_applied
 

@@ -390,7 +390,7 @@ if (coord == nproc-1) dTdz(:,:,nz) = lapse_rate
 end subroutine scalars_deriv
 
 !*******************************************************************************
-subroutine obukhov(u_avg)
+subroutine obukhov(u_avg,denom)
 !*******************************************************************************
 use param, only : vonk, dz, zo, nx, ny, ld, u_star, lbz, total_time_dim, dt, coord, z_i, jt_total
 use sim_param, only : ustar_lbc
@@ -398,13 +398,13 @@ use coriolis, only : repeat_interval
 use functions, only : linear_interp
 use test_filtermodule
 
-real(rprec), dimension(nx, ny), intent(in) :: u_avg
+real(rprec), dimension(nx, ny), intent(in) :: u_avg, denom !GN
 real(rprec), dimension(ld, ny) :: theta1
 
 integer :: i, j
 ! Use previous ustar_lbc to compute stability correction
 if (passive_scalar) then
-    ustar_lbc = u_avg*vonk/log(0.5_rprec*dz/zo)
+    ustar_lbc = u_avg*vonk/denom !GN
     return
 end if
 
@@ -413,7 +413,7 @@ call test_filter(theta1)
 
 ! Using previous time step's psi_m and psi_h to calculate obukhov length and
 ! stability functions
-ustar_lbc = u_avg*vonk/(log(0.5_rprec*dz/zo) + psi_m)
+ustar_lbc = u_avg*vonk/(denom + psi_m) !GN
 tstar_lbc = (theta1(1:nx,:) - scal_bot)*vonk                                   &
     / (log(0.5_rprec*dz/zo_s) + psi_h)
 
@@ -426,7 +426,7 @@ do i = 1, nx
 end do
 
 ! Recompute ustar_lbc using new values
-ustar_lbc = u_avg*vonk/(log(0.5_rprec*dz/zo) + psi_m)
+ustar_lbc = u_avg*vonk/(denom + psi_m) !GN
 
 ! Get boundary condition if reading from file
 if (read_lbc_scal) then
